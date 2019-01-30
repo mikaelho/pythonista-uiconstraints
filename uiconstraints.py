@@ -12,6 +12,8 @@ class Constrain:
   autofit_types = [ui.Button, ui.Label]
   
   def __init__(self, view, priority=1000):
+    '''Initialize a constraint manager for a view with the given priority.'''
+    
     self.view = view
     self.attribute = None
     self.operator = None
@@ -33,7 +35,23 @@ class Constrain:
       self.objc_constraint.setConstant_(value)
     
   def __str__(self):
-    return f'{type(self.view).__name__}.{self.attribute} {self.operator} {type(self.other_view).__name__}.{self.other_attribute} * {self.multiplier} + {self.constant}'
+    operators = ['<=', '==', '>=']
+    
+    view = self.view.name if self.view.name else type(self.view).__name__
+    
+    attribute = Constrain.characteristics[self.attribute][3]
+    
+    operator = operators[self.operator + 1]
+    
+    other_view = self.other_view.name if \
+    self.other_view and self.other_view.name\
+    else type(self.other_view).__name__
+    
+    other_attribute = Constrain.characteristics[self.other_attribute][3]
+    
+    return (f'{view}.{attribute} {operator} '
+    f'{other_view}.{other_attribute} '
+    f'* {self.multiplier} + {self.constant}')
     
   def __mul__(self, other):
     self.multiplier *= other
@@ -83,7 +101,6 @@ class Constrain:
     c = copy(self)
     c.attribute = 2
     return c
-    
     
   @property
   def top(self):
@@ -179,6 +196,20 @@ class Constrain:
   def trailing_margin(self):
     c = copy(self)
     c.attribute = 18
+    return c
+    
+  @property
+  def left_padding(self):
+    c = copy(self)
+    c.attribute = 1
+    c._constant -= c.margin_inset().leading
+    return c
+    
+  @property
+  def right_padding(self):
+    c = copy(self)
+    c._constant += c.margin_inset().trailing
+    c.attribute = 2
     return c
     
   @property
@@ -325,20 +356,24 @@ class Constrain:
     self.center_y == s.center_y
     self._set_size(share)
   
-  def dock_sides(self, constant=0, fit=default_fit):
+  def dock_sides(self, share=None, constant=0, fit=default_fit):
     self.leading == self._fit(fit).leading + constant
     self.trailing == self._fit(fit).trailing - constant
+    self._set_size(share)
     
   dock_horizontal = dock_sides
   
   def dock_horizontal_between(self, top_view, bottom_view, constant=0, fit=default_fit):
-    self.dock_horizontal(constant, fit)
+    self.dock_horizontal(constant=constant, fit=fit)
+    
+    top_c = Constrain(top_view)
+    bottom_c = Constrain(bottom_view)
     if fit == Constrain.TIGHT:
-      self.top == Constrain(top_view).bottom + constant
-      self.bottom == Constrain(bottom_view).top + constant
-    elif fit == Constrain.MARGIN:
-      self.top == Constrain(top_view).bottom_padding + constant
-      self.bottom == Constrain(bottom_view).top_padding + constant
+      self.top == top_c.bottom + constant
+      self.bottom == bottom_c.top + constant
+    else:
+      print(self.top == top_c.bottom_padding + constant)
+      print(self.bottom == bottom_c.top_padding + constant)
     
   def dock_vertical(self, constant=0, fit=default_fit):
     self.top == self._fit(fit).top + constant
@@ -419,25 +454,25 @@ class Constrain:
   na = -1
         
   characteristics = {
-    0: (no_attribute, size, na),
-    1: (left, position, horizontal),
-    2: (right, position, horizontal),
-    3: (top, position,vertical),
-    4: (bottom, position, vertical),
-    5: (leading, position, horizontal),
-    6: (trailing, position, horizontal),
-    7: (width, size, horizontal),
-    8: (height, size, vertical),
-    9: (center_x, position, horizontal),
-    10: (center_y, position, vertical),
-    11: (last_baseline, position, vertical),
-    12: (first_baseline, position, vertical),
-    13: (left_margin, position, horizontal),
-    14: (right_margin, position, horizontal),
-    15: (top_margin, position, vertical),
-    16: (bottom_margin, position, vertical),
-    17: (leading_margin, position, horizontal),
-    18: (trailing_margin, position, horizontal)
+    0: (no_attribute, size, na, 'no_attribute'),
+    1: (left, position, horizontal, 'left'),
+    2: (right, position, horizontal, 'right'),
+    3: (top, position,vertical, 'top'),
+    4: (bottom, position, vertical, 'bottom'),
+    5: (leading, position, horizontal, 'leading'),
+    6: (trailing, position, horizontal, 'trailing'),
+    7: (width, size, horizontal, 'width'),
+    8: (height, size, vertical, 'height'),
+    9: (center_x, position, horizontal, 'center_x'),
+    10: (center_y, position, vertical, 'center_y'),
+    11: (last_baseline, position, vertical, 'last_baseline'),
+    12: (first_baseline, position, vertical, 'first_baseline'),
+    13: (left_margin, position, horizontal, 'left_margin'),
+    14: (right_margin, position, horizontal, 'right_margin'),
+    15: (top_margin, position, vertical, 'top_margin'),
+    16: (bottom_margin, position, vertical, 'bottom_margin'),
+    17: (leading_margin, position, horizontal, 'leading_margin'),
+    18: (trailing_margin, position, horizontal, 'trailing_margin')
   }
     
   @on_main_thread
@@ -551,6 +586,8 @@ if __name__ == '__main__':
   result_area = ui.View()
   root.add_subview(result_area)
   style(result_area)
+  result_message = ui.Label(text='Click Done to exit', alignment=ui.ALIGN_CENTER)
+  result_area.add_subview(result_message)
   
   done_button = ui.Button(title='Done')
   root.add_subview(done_button)
@@ -584,11 +621,16 @@ if __name__ == '__main__':
   
   result_area_c.dock_horizontal_between(search_button, done_button)
   
+  Constrain(result_message).dock_center()
+  
   '''
-  result_area_c.dock_sides()
+  result_area_c.dock_horizontal()
+  
   result_area_c.top == search_button_c.bottom_padding
   result_area_c.bottom == done_button_c.top_padding
   '''
+  
+  
   '''
   path = 'resources/images/awesome/regular/industry/travel/sun'
   for component in path.split('/'):
@@ -634,7 +676,7 @@ if __name__ == '__main__':
   C(guide).height == 30
   '''
   
-  root.present(animated=False)
+  root.present('full_screen', hide_title_bar=True, animated=False)
   
   @scripter.script
   def constant_to(constraint, value, **kwargs):
