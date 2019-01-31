@@ -57,12 +57,36 @@ Default fit is `Constrain.MARGIN`. You can change this for all the convenience m
 
 ## Example
 
-Putting together all the tools mentioned in the previous example, here is how you set up a UI shown in the picture above:
+![Sample UI image](https://raw.githubusercontent.com/mikaelho/pythonista-uiconstraints/master/C52941A2-884A-433A-8E6F-F4D006C4FA48.jpeg)
+
+Putting together all the tools mentioned in the previous example, here is how you set up the UI shown in the picture above:
+
+```
+  search_field_c = Constrain(search_field)
+  search_button_c = Constrain(search_button)
+  done_button_c = Constrain(done_button)
+  cancel_button_c = Constrain(cancel_button)
+  
+  search_field_c.dock_top_leading()
+  search_field_c.trailing == search_button_c.leading_padding
+  
+  search_field_c.dock_top_leading()
+  search_button_c.dock_top_trailing()
+  search_field_c.trailing == search_button_c.leading_padding
+  search_field_c.height == search_button_c.height
+  
+  done_button_c.dock_bottom_trailing()
+  cancel_button_c.trailing == done_button_c.leading_padding
+  cancel_button_c.top == done_button_c.top
+  
+  Constrain(result_area).dock_horizontal_between(search_button, done_button)
+  Constrain(result_message).dock_center()
+```
 
 
-
-Note that this implementation wraps the constraint _factory_ class, [NSLayoutConstraint](https://developer.apple.com/documentation/uikit/nslayoutconstraint) - after the constraints have been created, they are regular Apple UI code.
 
 ## Anatomy of a constraint
+
+Since this implementation wraps the constraint _factory_ class, [NSLayoutConstraint](https://developer.apple.com/documentation/uikit/nslayoutconstraint), after creation the constraints run with native performance.
 
 
