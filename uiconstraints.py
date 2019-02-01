@@ -6,6 +6,7 @@ from copy import copy
 
 NSLayoutConstraint = ObjCClass('NSLayoutConstraint')
 UILayoutGuide = ObjCClass('UILayoutGuide')
+UIDevice = ObjCClass('UIDevice')
 
 class Constrain:
   
@@ -91,6 +92,8 @@ class Constrain:
     c._create_constraint(other)
     return c
     
+  #docgen: Anchors
+    
   @property
   def _no_attribute(self):
     c = copy(self)
@@ -127,13 +130,16 @@ class Constrain:
     
   @property
   def leading(self):
-    'The leading edge of the object’s alignment rectangle. Same as `left` for left-to-right languages.'
+    '''The leading edge of the object’s alignment rectangle.
+    Same as `left` for left-to-right languages.'''
     c = copy(self)
     c.attribute = 5
     return c
     
   @property
   def trailing(self):
+    '''The trailing edge of the object’s alignment rectangle.
+    Same as `right` for left-to-right languages.'''
     c = copy(self)
     c.attribute = 6
     return c
@@ -295,9 +301,10 @@ class Constrain:
   def deactivate(cls, *constraints):
     for constraint in constraints:
       if type(constraint) in (tuple, list):
-        Constraint.deactivate(*constraint)
+        Constrain.deactivate(*constraint)
       else:
         self.objc_constraint.setActive_(False)
+        self.view.layout_constraints.remove(self)
     
   # LAYOUT GUIDES
     
@@ -575,22 +582,82 @@ class Constrain:
       self.multiplier,
       self.constant,
       self._priority
-    ) #.autorelease()
-    
-    #retain_global(self.objc_constraint)
-    #retain_global(self.view)
-    #if self.other_view:
-    #  retain_global(self.other_view)
+    )
     
     self.objc_constraint.setActive_(True)
     
+  #docgen: Device information
+  
   @classmethod
-  def _set_defaults(cls, view):
-    C = Constrain
-    (C(view, priority=1).width == view.width)
-    (C(view, priority=1).height == view.height)
-    (C(view, priority=1).left == C(view.superview).left + view.x)
-    (C(view, priority=1).top == C(view.superview).top + view.y)
+  def horizontal_size_class(cls):
+    return ['constrained', 'regular'][UIApplication.sharedApplication().\
+    keyWindow().traitCollection().\
+    horizontalSizeClass() - 1]
+    
+  @classmethod
+  def vertical_size_class(cls):
+    return UIApplication.sharedApplication().keyWindow().traitCollection().\
+    verticalSizeClass()
+  
+  @classmethod
+  def is_portrait(cls):
+    "Returns true if the device is being held in portrait orientation."
+    orientation = UIDevice.currentDevice().orientation()
+    return orientation in [1, 2]
+  
+  @classmethod
+  def is_landscape(cls):
+    "Returns true if the device is being held in portrait orientation."
+    orientation = UIDevice.currentDevice().orientation()
+    return orientation in [3, 4]
+  
+  @classmethod
+  def is_phone(cls):
+    "Returns true if the device is a phone-type device."
+    return UIApplication.sharedApplication().keyWindow().traitCollection().\
+    userInterfaceIdiom() == 0
+    
+  @classmethod
+  def is_pad(cls):
+    "Returns true if the device is a pad-type device."
+    return UIApplication.sharedApplication().keyWindow().traitCollection().\
+    userInterfaceIdiom() == 1
+    
+  @classmethod
+  def is_width_constrained(cls):
+    '''Returns true if the display is relatively narrow in the current orientation
+    (e.g. phone held in the portrait orientation).'''
+    return (
+      (cls.is_portrait() and cls.horizontal_size_class() == 'constrained') or
+      (cls.is_landscape() and cls.vertical_size_class() == 'constrained')
+    )
+    
+  @classmethod
+  def is_width_regular(cls):
+    '''Returns true if the display is relatively wide in the current orientation
+    (e.g. phone held in the landscape orientation, or an iPad in any orientation).'''
+    return (
+      (cls.is_portrait() and cls.horizontal_size_class() == 'regular') or
+      (cls.is_landscape() and cls.vertical_size_class() == 'regular')
+    )
+    
+  @classmethod
+  def is_height_constrained(cls):
+    '''Returns true if the display is relatively small in the vertical direction
+    (e.g. phone held in the landscape orientation).'''
+    return (
+      (cls.is_landscape() and cls.horizontal_size_class() == 'constrained') or
+      (cls.is_portrait() and cls.vertical_size_class() == 'constrained')
+    )
+    
+  @classmethod
+  def is_height_regular(cls):
+    '''Returns true if the display is relatively tall in the current orientation
+    (e.g. phone held in the portrait orientation, or an iPad in any orientation).'''
+    return (
+      (cls.is_landscape() and cls.horizontal_size_class() == 'regular') or
+      (cls.is_portrait() and cls.vertical_size_class() == 'regular')
+    )
 
 
 if __name__ == '__main__':
@@ -598,84 +665,124 @@ if __name__ == '__main__':
   import ui
   import scripter
   
-  class Root(ui.View):
+  class LayoutDemo(ui.View):
+    
+    def __init__(self, **kwargs):
+      super().__init__(**kwargs)
+      self.previous_size_class = None
+      self.active_constraints = []
+      self.create_ui()
+    
+    def style(self, view):
+      view.background_color='white'
+      view.border_color = 'black'
+      view.border_width = 1
+      view.text_color = 'black'
+      view.tint_color = 'black'
+      
+    def create_ui(self):    
+      self.style(self)
+      
+      main_frame = ui.View()
+      self.add_subview(main_frame)
+      
+      side_panel = ui.Label(text='Side navigation panel', alignment=ui.ALIGN_CENTER)
+      self.style(side_panel)
+      self.add_subview(side_panel)
+      
+      main_frame_c = Constrain(main_frame)
+      side_panel_c = Constrain(side_panel)
+      main_frame_c.dock_trailing(fit=Constrain.SAFE)
+      side_panel_c.dock_leading(fit=Constrain.SAFE)
+      #print(Constrain.is_width_regular())
+      self.side_panel_width = side_panel_c.width == (300 if Constrain.is_width_regular() else 0)
+      main_frame_c.leading == side_panel_c.trailing
+      
+      search_field = ui.TextField(name='Searchfield', placeholder='Search path')
+      main_frame.add_subview(search_field)
+      self.style(search_field)
+      
+      search_button = ui.Button(name='Search', title='Search')
+      main_frame.add_subview(search_button)
+      self.style(search_button)
+      
+      result_area = ui.Label(text='Main results display area', alignment=ui.ALIGN_CENTER)
+      main_frame.add_subview(result_area)
+      self.style(result_area)
+      
+      done_button = ui.Button(name='Done', title='Done')
+      main_frame.add_subview(done_button)
+      self.style(done_button)
+      
+      def done(sender):
+        root.close()
+      done_button.action = done
+      
+      cancel_button = ui.Button(name='Cancel', title='Cancel')
+      self.add_subview(cancel_button)
+      self.style(cancel_button)
+      
+      search_field_c = Constrain(search_field)
+      search_button_c = Constrain(search_button).fit()
+      done_button_c = Constrain(done_button).fit()
+      cancel_button_c = Constrain(cancel_button).fit()
+      result_area_c = Constrain(result_area)
+      
+      search_field_c.dock_top_leading()
+      search_button_c.dock_top_trailing()
+      search_field_c.trailing == search_button_c.leading_padding
+      search_field_c.height == search_button_c.height
+      
+      done_button_c.dock_bottom_trailing()
+      cancel_button_c.trailing == done_button_c.leading_padding
+      cancel_button_c.top == done_button_c.top
+      result_area_c.dock_horizontal_between(search_button, done_button)
+      
+      '''
+      path = 'resources/images/awesome/regular/industry/travel/sun'
+      for component in path.split('/'):
+        label = ui.Label(text=component, alignment=ui.ALIGN_CENTER)
+        self.style(label)
+        result_area.add_subview(label)
+        label_c = Constrain(label).fit()
+    
+        if len(result_area.subviews) > 1:
+          previous_label = result_area.subviews[-2]
+          previous_label_c = Constrain(previous_label)
+          
+          C = Constrain
+          
+          label_c.last_baseline >= previous_label_c.last_baseline
+          label_c.trailing <= result_area_c.trailing_margin
+          C(label, priority=399).top == C(previous_label).top
+    
+          C(label, priority=500).leading == C(previous_label).trailing_padding
+          C(label, priority=400).leading == C(result_area).leading_margin
+          C(label, priority=400).top == C(previous_label).bottom_padding
+        else:
+          label_c.top == result_area_c.top_margin
+          label_c.leading == result_area_c.leading_margin
+        previous_label = label
+    '''
     
     def layout(self):
-      pass
-  
-  C = Constrain
-  
-  def style(view):
-    view.background_color='white'
-    view.border_color = 'black'
-    view.border_width = 1
-    view.text_color = 'black'
-    view.tint_color = 'black'
-  
-  root = Root(background_color='white')
-  
-  search_field = ui.TextField(name='Searchfield', placeholder='Search path')
-  root.add_subview(search_field)
-  style(search_field)
-  
-  search_button = ui.Button(name='Search', title='Search')
-  root.add_subview(search_button)
-  style(search_button)
-  
-  result_area = ui.Label(text='Click Done to exit', alignment=ui.ALIGN_CENTER)
-  root.add_subview(result_area)
-  style(result_area)
-  
-  done_button = ui.Button(name='Done', title='Done')
-  root.add_subview(done_button)
-  style(done_button)
-  
-  def done(sender):
-    root.close()
-  done_button.action = done
-  
-  cancel_button = ui.Button(name='Cancel', title='Cancel')
-  root.add_subview(cancel_button)
-  style(cancel_button)
-  
-  search_field_c = Constrain(search_field)
-  search_button_c = Constrain(search_button).fit()
-  done_button_c = Constrain(done_button).fit()
-  cancel_button_c = Constrain(cancel_button).fit()
-  result_area_c = Constrain(result_area)
-  
-  search_field_c.dock_top_leading()
-  search_button_c.dock_top_trailing()
-  search_field_c.trailing == search_button_c.leading_padding
-  search_field_c.height == search_button_c.height
-  
-  done_button_c.dock_bottom_trailing()
-  cancel_button_c.trailing == done_button_c.leading_padding
-  cancel_button_c.top == done_button_c.top
-  result_area_c.dock_horizontal_between(search_button, done_button)
-  
-  path = 'resources/images/awesome/regular/industry/travel/sun'
-  for component in path.split('/'):
-    label = ui.Label(text=component, alignment=ui.ALIGN_CENTER)
-    style(label)
-    result_area.add_subview(label)
-    label_c = Constrain(label).fit()
-
-    if len(result_area.subviews) > 1:
-      previous_label = result_area.subviews[-2]
-      previous_label_c = Constrain(previous_label)
+      if Constrain.is_width_constrained():
+        self.side_panel_width.constant = 0
+      else:
+        self.side_panel_width.constant = 300
       
-      label_c.last_baseline >= previous_label_c.last_baseline
-      label_c.trailing <= result_area_c.trailing_margin
-      C(label, priority=399).top == C(previous_label).top
+      '''
+      horizontal_size_class = Constrain.horizontal_size_class()
+      
+      if horizontal_size_class != self.previous_size_class:
+        self.previous_size_class = horizontal_size_class
+        
+        Constrain.deactivate(self.active_constraints)
+      ''' 
+  
+  root = LayoutDemo()
+  root.present('full_screen', hide_title_bar=True, animated=False)
 
-      C(label, priority=500).leading == C(previous_label).trailing_padding
-      C(label, priority=400).leading == C(result_area).leading_margin
-      C(label, priority=400).top == C(previous_label).bottom_padding
-    else:
-      label_c.top == result_area_c.top_margin
-      label_c.leading == result_area_c.leading_margin
-    previous_label = label
   
   #for c in C.constraints_by_attribute(textfield, C.height):
   #  print(c)
@@ -699,10 +806,9 @@ if __name__ == '__main__':
   C(guide).height == 30
   '''
   
-  root.present('full_screen', hide_title_bar=True, animated=False)
-  
+  '''
   @scripter.script
   def constant_to(constraint, value, **kwargs):
     scripter.slide_value(constraint, 'constant', value, **kwargs)
   #constant_to(gap, 100, ease_func=scripter.ease_in_out)
-  
+  '''
