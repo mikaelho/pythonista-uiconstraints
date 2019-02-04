@@ -22,6 +22,8 @@ To make it a bit more succint, you might alias the class:
     
     C(view1).top == C(view2).bottom_padding
     
+Please see a later section for the full constraint syntax.
+    
 In practice, you usually need to set more than one constraint per view, so it makes sense to use separate variables, for readability and ease of typing:
 
     button_c = Constrain(button)
@@ -39,7 +41,7 @@ Constraints can use the following attributes:
 *     `left_margin, right_margin, top_margin, bottom_margin, leading_margin, trailing_margin`
 	* Use these when you want to leave a standard margin between the view and the edge of its superview (inside margin).
 *     `left_padding, right_padding, top_padding, bottom_padding, leading_padding, trailing_padding`
-	* Use these when you want to leave a standard margin between the view and the view next to it (outside margin).
+	* Use these when you want to leave a standard margin between the view and the view next to it (outside margin). Please note that these are add-ons that after creation do not show as `padding`, but as the regular edge constraint with the margin added as a constant value, usually 8 pts.
 
 While these constraints are easy to create, you need several for each view, and that can get tedious very quickly. Thus the wrapper provides several convenience functions to set several constraints at once. All these start with `dock_`, and place the view in the indicated area:
 
@@ -83,9 +85,58 @@ Putting together all the tools mentioned in the previous example, here is how yo
   Constrain(result_message).dock_center()
 ```
 
+## Dynamic layout
 
+Constraint class provides a number of properties you can use to understand how your UI should be laid out:
+
+* `horizontal_size_class`
+	* Returns 'constrained' or 'regular'
+* `vertical_size_class`
+	* Likewise
+* `is_portrait`
+* `is_landscape`
+* `is_phone`
+* `is_pad`
+* `is_width_constrained`
+* `is_width_regular`
+* `is_height_constrained`
+* `is_height_regular`
+
+Given the current lineup of iPhones and iPads, `is_width_regular`(or `_constrained`, if you prefer) is possibly the most useful of these methods, allowing you to take advantage of the added horizontal space on a pad, or on a phone in landscape orientation.
+
+Following example defines an additional side panel:
+
+    main_frame = ui.View()
+    self.add_subview(main_frame)
+    side_panel = ui.View()
+    self.add_subview(side_panel)
+    
+    main_frame_c = Constrain(main_frame)
+    side_panel_c = Constrain(side_panel)
+    
+    main_frame_c.dock_trailing()
+    root.main_leading = main_frame_c.leading == root.leading
+    side_panel_c.dock_leading()
+    side_panel_c.width == 300
+    side_panel_c.height == main_frame_c.height
+    side_panel_c.trailing == main_frame_c.leading
+
+Which is then revealed whenever there is room, in the root view's `layout` method:
+
+    if Constrain.is_width_constrained():
+      self.main_leading.constant = 0
+    else:
+      self.main_leading.constant = 300
 
 ## Anatomy of a constraint
+
+Constraints have this syntax:
+
+    Constrain(target).attribute == Constrain(source).attribute * multiplier + constant
+    
+Notes:
+* Relationship can also be `<=` or `>=` (but nothing else)
+* You can also `/` a multiplier or 
 
 Since this implementation wraps the constraint _factory_ class, [NSLayoutConstraint](https://developer.apple.com/documentation/uikit/nslayoutconstraint), after creation the constraints run with native performance.
 

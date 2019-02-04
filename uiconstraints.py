@@ -1,8 +1,9 @@
 #coding: utf-8
 from objc_util import *
-import ui
+import ui, console
 from types import SimpleNamespace
 from copy import copy
+import random
 
 NSLayoutConstraint = ObjCClass('NSLayoutConstraint')
 UILayoutGuide = ObjCClass('UILayoutGuide')
@@ -311,13 +312,17 @@ class Constrain:
   @property
   def safe_area(self):
     self.view = SimpleNamespace(
-      objc_instance=self.view.objc_instance.safeAreaLayoutGuide(), name='Safe area')
+      objc_instance=self.view.objc_instance.safeAreaLayoutGuide(),
+      name='Safe area',
+      superview=self.view)
     return self
     
   @property
   def margins(self):
     self.view = SimpleNamespace(
-      objc_instance=self.view.objc_instance.layoutMarginsGuide(), name='Margins')
+      objc_instance=self.view.objc_instance.layoutMarginsGuide(),
+      name='Margins',
+      superview=self.view)
     return self
     
   @classmethod
@@ -596,20 +601,21 @@ class Constrain:
     
   @classmethod
   def vertical_size_class(cls):
-    return UIApplication.sharedApplication().keyWindow().traitCollection().\
-    verticalSizeClass()
+    return ['constrained', 'regular'][UIApplication.sharedApplication().\
+    keyWindow().traitCollection().\
+    verticalSizeClass() - 1]
   
   @classmethod
   def is_portrait(cls):
-    "Returns true if the device is being held in portrait orientation."
-    orientation = UIDevice.currentDevice().orientation()
-    return orientation in [1, 2]
+    "Returns true if the device thinks it is in portrait orientation."
+    w, h = ui.get_screen_size()
+    return w < h
   
   @classmethod
   def is_landscape(cls):
-    "Returns true if the device is being held in portrait orientation."
-    orientation = UIDevice.currentDevice().orientation()
-    return orientation in [3, 4]
+    "Returns true if the device thinks it is in landscape orientation."
+    w, h = ui.get_screen_size()
+    return w > h
   
   @classmethod
   def is_phone(cls):
@@ -626,7 +632,7 @@ class Constrain:
   @classmethod
   def is_width_constrained(cls):
     '''Returns true if the display is relatively narrow in the current orientation
-    (e.g. phone held in the portrait orientation).'''
+    (e.g. phone in the portrait orientation).'''
     return (
       (cls.is_portrait() and cls.horizontal_size_class() == 'constrained') or
       (cls.is_landscape() and cls.vertical_size_class() == 'constrained')
@@ -635,7 +641,7 @@ class Constrain:
   @classmethod
   def is_width_regular(cls):
     '''Returns true if the display is relatively wide in the current orientation
-    (e.g. phone held in the landscape orientation, or an iPad in any orientation).'''
+    (e.g. phone in the landscape orientation, or an iPad in any orientation).'''
     return (
       (cls.is_portrait() and cls.horizontal_size_class() == 'regular') or
       (cls.is_landscape() and cls.vertical_size_class() == 'regular')
@@ -644,7 +650,7 @@ class Constrain:
   @classmethod
   def is_height_constrained(cls):
     '''Returns true if the display is relatively small in the vertical direction
-    (e.g. phone held in the landscape orientation).'''
+    (e.g. phone in the landscape orientation).'''
     return (
       (cls.is_landscape() and cls.horizontal_size_class() == 'constrained') or
       (cls.is_portrait() and cls.vertical_size_class() == 'constrained')
@@ -659,6 +665,261 @@ class Constrain:
       (cls.is_portrait() and cls.vertical_size_class() == 'regular')
     )
 
+  class DiagnosticOverlay(ui.View):
+    
+    class ConnectorOverlay(ui.View):
+      
+      def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.touch_enabled = False
+      
+      def draw(self):
+        for (marker, other_marker, color) in self.superview.connectors:
+          pos1 = marker.center
+          pos2 = other_marker.center
+          path = ui.Path()
+          path.move_to(pos1.x, pos1.y)
+          path.line_to(pos2.x, pos2.y)
+          ui.set_color(color)
+          path.stroke()
+          
+          
+    class AnchorMarker(ui.View):
+      
+      def __init__(self, color, constraint_str, **kwargs):
+        super().__init__(**kwargs)
+        self.background_color = color
+        self.border_width = 1
+        self.border_color = 'white'
+        self.text = constraint_str
+        
+      def touch_ended(self, touch):
+        console.alert(self.text)
+        
+    
+    def __init__(self, root, start=None, **kwargs):
+      self.start = start or root
+      super().__init__(
+        frame=root.bounds, flex='WH', 
+        background_color=(1,1,1,0.7), 
+        **kwargs)
+      root.add_subview(self)
+      self.connectors = []
+      self.add_overlay(start or root)
+      self.add_subview(type(self).ConnectorOverlay(frame=self.bounds, flex='WH'))
+      
+    def collect_views(self, view):
+      if type(view) is SimpleNamespace:
+        return []
+      local_list = [view] if hasattr(view, 'layout_constraints') else []
+      for subview in view.subviews:
+        if hasattr(subview, 'layout_constraints'):
+          local_list += self.collect_views(subview)
+      return local_list
+      
+    def add_overlay(self, first_view):
+      ''' Displays the active constraints for first_view and all of its subviews
+      as an overlay on the current UI.'''
+      cls = Constrain
+      palette = []
+      process_queue = self.collect_views(first_view)
+      for view in process_queue:
+
+        if len(palette) == 0:
+          palette = cls.DiagnosticOverlay._marker_palette.copy()
+          random.shuffle(palette)
+        colors = palette.pop()
+        for constraint in view.layout_constraints:
+          a = cls.characteristics[constraint.attribute][3]
+          color = colors[cls.DiagnosticOverlay._color_per_attribute[a]]
+          marker = cls.DiagnosticOverlay.AnchorMarker(
+            color,
+            str(constraint))
+          self.add_subview(marker)
+          self._place_anchor_marker(
+            constraint.view, 
+            constraint.attribute,
+            color, marker)
+          if constraint.other_view is not None:
+            other_marker = cls.DiagnosticOverlay.AnchorMarker(
+              color,
+              str(constraint))
+            self.add_subview(other_marker)
+            self._place_anchor_marker(
+              constraint.other_view, 
+              constraint.other_attribute, 
+              color, other_marker)
+            
+            self.connectors.append((marker, other_marker, color))
+     
+    def _place_anchor_marker(self, view, attribute, color, marker): #, other_marker=None):
+      if view is None: return 
+      cls = Constrain
+      thickness = 5
+      share = 0.75
+      marker_size = 20
+      a = cls.characteristics[attribute][3]
+      marker_c = cls(marker)
+      view_c = cls(view)
+      #if other_marker:
+      #  other_marker_c = cls(other_marker)
+        
+      if a == 'left':
+        marker_c.center_x == view_c.left
+        #if not other_marker:
+        marker_c.center_y == view_c.center_y
+        #else:
+        #  marker_c.center_y == other_marker_c.center_y
+        marker_c.width == thickness
+        marker_c.height == marker_size
+      elif a == 'right':
+        marker_c.center_x == view_c.right
+        marker_c.center_y == view_c.center_y
+        #if not other_marker:
+        marker_c.center_y == view_c.center_y
+        #else:
+        #  marker_c.center_y == other_marker_c.center_y
+        marker_c.width == thickness
+        marker_c.height == view_c.height * share
+      elif a == 'top':
+        marker_c.center_x == view_c.center_x
+        marker_c.center_y == view_c.top
+        marker_c.height == thickness
+        marker_c.width == view_c.width * share
+      elif a == 'bottom':
+        marker_c.center_x == view_c.center_x
+        marker_c.center_y == view_c.bottom
+        marker_c.height == thickness
+        marker_c.width == view_c.width * share
+      elif a == 'leading':
+        marker_c.center_x == view_c.leading
+        marker_c.center_y == view_c.center_y
+        marker_c.width == thickness
+        marker_c.height == view_c.height * share
+      elif a == 'trailing':
+        marker_c.center_x == view_c.trailing
+        marker_c.center_y == view_c.center_y
+        marker_c.width == thickness
+        marker_c.height == view_c.height * share
+      elif a == 'width':
+        marker_c.center_x == view_c.center_x
+        marker_c.center_y == view_c.center_y
+        marker_c.height == thickness
+        marker_c.width == view_c.width
+      elif a == 'height':
+        marker_c.center_x == view_c.center_x
+        marker_c.center_y == view_c.center_y
+        marker_c.width == thickness
+        marker_c.height == view_c.height
+      elif a == 'center_x':
+        marker_c.center_x == view_c.center_x
+        marker_c.center_y == view_c.center_y
+        marker_c.width == thickness
+        marker_c.height == view_c.height * share
+      elif a == 'center_y':
+        marker_c.center_x == view_c.center_x
+        marker_c.center_y == view_c.center_y
+        marker_c.height == thickness
+        marker_c.width == view_c.width * share
+      elif a == 'last_baseline':
+        marker_c.center_x == view_c.center_x
+        marker_c.center_y == view_c.last_baseline
+        marker_c.height == thickness
+        marker_c.width == view_c.width * share
+      elif a == 'first_baseline':
+        marker_c.center_x == view_c.center_x
+        marker_c.center_y == view_c.first_baseline
+        marker_c.height == thickness
+        marker_c.width == view_c.width * share
+      elif a == 'left_margin':
+        marker_c.center_x == view_c.left_margin
+        marker_c.center_y == view_c.center_y
+        marker_c.width == thickness
+        marker_c.height == view_c.height * share
+      elif a == 'right_margin':
+        marker_c.center_x == view_c.right_margin
+        marker_c.center_y == view_c.center_y
+        marker_c.width == thickness
+        marker_c.height == view_c.height * share
+      elif a == 'top_margin':
+        marker_c.center_x == view_c.center_x
+        marker_c.center_y == view_c.top_margin
+        marker_c.height == thickness
+        marker_c.width == view_c.width * share
+      elif a == 'bottom_margin':
+        marker_c.center_x == view_c.center_x
+        marker_c.center_y == view_c.bottom_margin
+        marker_c.height == thickness
+        marker_c.width == view_c.width * share
+      elif a == 'leading_margin':
+        marker_c.center_x == view_c.leading_margin
+        marker_c.center_y == view_c.center_y
+        marker_c.width == thickness
+        marker_c.height == view_c.height * share
+      elif a == 'trailing_margin':
+        marker_c.center_x == view_c.trailing_margin
+        marker_c.center_y == view_c.center_y
+        marker_c.width == thickness
+        marker_c.height == view_c.height * share
+      
+    _marker_palette = [
+      ['#2196F3', '#1976D2', '#EF5350'],
+      ['#03A9F4', '#039BE5', '#FFC107'],
+      ['#03A9F4', '#64B5F6', '#FF80AB'],
+      ['#00BCD4', '#4DD0E1', '#FDD835'],
+      ['#00BCD4', '#00ACC1', '#FFA726'],
+      ['#3F51B5', '#5C6BC0', '#FFC107'],
+      ['#673AB7', '#512DA8', '#2196F3'],
+      ['#9C27B0', '#BA68C8', '#FFCA28'],
+      ['#673AB7', '#9575CD', '#2196F3'],
+      ['#F44336', '#FF5252', '#FFA726'],
+      ['#F44336', '#E53935', '#FDD835'],
+      ['#E91E63', '#F06292', '#42A5F5'],
+      ['#FF5722', '#FF6E40', '#FBC02D'],
+      ['#FF5722', '#E64A19', '#3F51B5'],
+      ['#FF9800', '#FB8C00', '#F44336'],
+      ['#FF9800', '#FFB74D', '#29B6F6'],
+      ['#FFC107', '#FFA000', '#26C6DA'],
+      ['#FFC107', '#FFD54F', '#4FC3F7'],
+      ['#CDDC39', '#C0CA33', '#009688'],
+      ['#8BC34A', '#9CCC65', '#FF8A65'],
+      ['#CDDC39', '#689F38', '#FFD740'],
+      ['#4CAF50', '#66BB6A', '#FFC107'],
+      ['#009688', '#00897B', '#4DD0E1'],
+      ['#009688', '#80CBC4', '#FDD835'],
+      ['#607D8B', '#455A64', '#FDD835'],
+      ['#607D8B', '#37474F', '#F06292'],
+      ['#9E9E9E', '#757575', '#42A5F5'],
+      ['#9E9E9E', '#BDBDBD', '#FF7043'],
+      ['#795548', '#A1887F', '#FFCA28'],
+      ['#795548', '#5D4037', '#4CAF50'],
+    ]
+    
+    _edges = 0
+    _baselines = 0
+    _size = 1
+    
+    _color_per_attribute = {
+      'left': _edges,
+      'right': _edges,
+      'top': _edges,
+      'bottom': _edges,
+      'leading': _edges,
+      'trailing': _edges,
+      'width': _size,
+      'height': _size,
+      'center_x': _baselines,
+      'center_y': _baselines,
+      'last_baseline': _baselines,
+      'first_baseline': _baselines,
+      'left_margin': _edges,
+      'right_margin': _edges,
+      'top_margin': _edges,
+      'bottom_margin': _edges,
+      'leading_margin': _edges,
+      'trailing_margin': _edges,
+    }
+      
 
 if __name__ == '__main__':
   
@@ -673,6 +934,12 @@ if __name__ == '__main__':
       self.active_constraints = []
       self.create_ui()
     
+    def layout(self):
+      if Constrain.is_width_constrained():
+        self.main_leading.constant = 0
+      else:
+        self.main_leading.constant = 300
+    
     def style(self, view):
       view.background_color='white'
       view.border_color = 'black'
@@ -683,20 +950,26 @@ if __name__ == '__main__':
     def create_ui(self):    
       self.style(self)
       
-      main_frame = ui.View()
+      main_frame = ui.View(name='Main frame')
       self.add_subview(main_frame)
       
-      side_panel = ui.Label(text='Side navigation panel', alignment=ui.ALIGN_CENTER)
+      side_panel = ui.Label(
+        name='Side panel',
+        text='Side navigation panel', 
+        alignment=ui.ALIGN_CENTER)
       self.style(side_panel)
       self.add_subview(side_panel)
       
       main_frame_c = Constrain(main_frame)
       side_panel_c = Constrain(side_panel)
       main_frame_c.dock_trailing(fit=Constrain.SAFE)
+      self.main_leading = main_frame_c.leading == Constrain(self).safe_area.leading
       side_panel_c.dock_leading(fit=Constrain.SAFE)
       #print(Constrain.is_width_regular())
-      self.side_panel_width = side_panel_c.width == (300 if Constrain.is_width_regular() else 0)
-      main_frame_c.leading == side_panel_c.trailing
+      side_panel_c.width == 300
+      side_panel_c.height == main_frame_c.height
+      
+      side_panel_c.trailing == main_frame_c.leading
       
       search_field = ui.TextField(name='Searchfield', placeholder='Search path')
       main_frame.add_subview(search_field)
@@ -719,7 +992,7 @@ if __name__ == '__main__':
       done_button.action = done
       
       cancel_button = ui.Button(name='Cancel', title='Cancel')
-      self.add_subview(cancel_button)
+      main_frame.add_subview(cancel_button)
       self.style(cancel_button)
       
       search_field_c = Constrain(search_field)
@@ -737,6 +1010,8 @@ if __name__ == '__main__':
       cancel_button_c.trailing == done_button_c.leading_padding
       cancel_button_c.top == done_button_c.top
       result_area_c.dock_horizontal_between(search_button, done_button)
+      
+      d = Constrain.DiagnosticOverlay(self) #, search_button)
       
       '''
       path = 'resources/images/awesome/regular/industry/travel/sun'
@@ -764,25 +1039,32 @@ if __name__ == '__main__':
           label_c.leading == result_area_c.leading_margin
         previous_label = label
     '''
-    
+    '''
     def layout(self):
       if Constrain.is_width_constrained():
         self.side_panel_width.constant = 0
       else:
         self.side_panel_width.constant = 300
+    '''
+    '''
+    horizontal_size_class = Constrain.horizontal_size_class()
+    
+    if horizontal_size_class != self.previous_size_class:
+      self.previous_size_class = horizontal_size_class
       
-      '''
-      horizontal_size_class = Constrain.horizontal_size_class()
-      
-      if horizontal_size_class != self.previous_size_class:
-        self.previous_size_class = horizontal_size_class
-        
-        Constrain.deactivate(self.active_constraints)
+      Constrain.deactivate(self.active_constraints)
       ''' 
   
   root = LayoutDemo()
   root.present('full_screen', hide_title_bar=True, animated=False)
 
+  '''
+  cur_views = [(root, 0)]
+  while len(cur_views) > 0:
+    v, i = cur_views.pop(0)
+    [cur_views.append((subview, i+1)) for subview in v.subviews]
+    print('  '*i + str(type(v)), str(v.frame))
+  '''
   
   #for c in C.constraints_by_attribute(textfield, C.height):
   #  print(c)
