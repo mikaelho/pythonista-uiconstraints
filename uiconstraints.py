@@ -595,9 +595,13 @@ class Constrain:
   
   @classmethod
   def horizontal_size_class(cls):
-    return ['constrained', 'regular'][UIApplication.sharedApplication().\
-    keyWindow().traitCollection().\
-    horizontalSizeClass() - 1]
+    return 'constrained' if cls.is_phone() and cls.is_portrait() else 'regular'
+    
+    # This does not currently work on
+    # iPhone X iOS 12.1.3:
+    #return ['constrained', 'regular'][UIApplication.sharedApplication().\
+    #keyWindow().traitCollection().\
+    #horizontalSizeClass() - 1]
     
   @classmethod
   def vertical_size_class(cls):
@@ -633,37 +637,25 @@ class Constrain:
   def is_width_constrained(cls):
     '''Returns true if the display is relatively narrow in the current orientation
     (e.g. phone in the portrait orientation).'''
-    return (
-      (cls.is_portrait() and cls.horizontal_size_class() == 'constrained') or
-      (cls.is_landscape() and cls.vertical_size_class() == 'constrained')
-    )
+    return cls.horizontal_size_class() == 'constrained'
     
   @classmethod
   def is_width_regular(cls):
     '''Returns true if the display is relatively wide in the current orientation
     (e.g. phone in the landscape orientation, or an iPad in any orientation).'''
-    return (
-      (cls.is_portrait() and cls.horizontal_size_class() == 'regular') or
-      (cls.is_landscape() and cls.vertical_size_class() == 'regular')
-    )
+    return cls.horizontal_size_class() == 'regular'
     
   @classmethod
   def is_height_constrained(cls):
     '''Returns true if the display is relatively small in the vertical direction
     (e.g. phone in the landscape orientation).'''
-    return (
-      (cls.is_landscape() and cls.horizontal_size_class() == 'constrained') or
-      (cls.is_portrait() and cls.vertical_size_class() == 'constrained')
-    )
+    return cls.vertical_size_class() == 'constrained'
     
   @classmethod
   def is_height_regular(cls):
     '''Returns true if the display is relatively tall in the current orientation
     (e.g. phone held in the portrait orientation, or an iPad in any orientation).'''
-    return (
-      (cls.is_landscape() and cls.horizontal_size_class() == 'regular') or
-      (cls.is_portrait() and cls.vertical_size_class() == 'regular')
-    )
+    return cls.vertical_size_class() == 'regular'
 
   class DiagnosticOverlay(ui.View):
     
@@ -1011,63 +1003,10 @@ if __name__ == '__main__':
       cancel_button_c.top == done_button_c.top
       result_area_c.dock_horizontal_between(search_button, done_button)
       
-      d = Constrain.DiagnosticOverlay(self) #, search_button)
-      
-      '''
-      path = 'resources/images/awesome/regular/industry/travel/sun'
-      for component in path.split('/'):
-        label = ui.Label(text=component, alignment=ui.ALIGN_CENTER)
-        self.style(label)
-        result_area.add_subview(label)
-        label_c = Constrain(label).fit()
-    
-        if len(result_area.subviews) > 1:
-          previous_label = result_area.subviews[-2]
-          previous_label_c = Constrain(previous_label)
-          
-          C = Constrain
-          
-          label_c.last_baseline >= previous_label_c.last_baseline
-          label_c.trailing <= result_area_c.trailing_margin
-          C(label, priority=399).top == C(previous_label).top
-    
-          C(label, priority=500).leading == C(previous_label).trailing_padding
-          C(label, priority=400).leading == C(result_area).leading_margin
-          C(label, priority=400).top == C(previous_label).bottom_padding
-        else:
-          label_c.top == result_area_c.top_margin
-          label_c.leading == result_area_c.leading_margin
-        previous_label = label
-    '''
-    '''
-    def layout(self):
-      if Constrain.is_width_constrained():
-        self.side_panel_width.constant = 0
-      else:
-        self.side_panel_width.constant = 300
-    '''
-    '''
-    horizontal_size_class = Constrain.horizontal_size_class()
-    
-    if horizontal_size_class != self.previous_size_class:
-      self.previous_size_class = horizontal_size_class
-      
-      Constrain.deactivate(self.active_constraints)
-      ''' 
+      #d = Constrain.DiagnosticOverlay(self, search_field)
   
   root = LayoutDemo()
   root.present('full_screen', hide_title_bar=True, animated=False)
-
-  '''
-  cur_views = [(root, 0)]
-  while len(cur_views) > 0:
-    v, i = cur_views.pop(0)
-    [cur_views.append((subview, i+1)) for subview in v.subviews]
-    print('  '*i + str(type(v)), str(v.frame))
-  '''
-  
-  #for c in C.constraints_by_attribute(textfield, C.height):
-  #  print(c)
   
   '''
   guide = C.create_guide(root)

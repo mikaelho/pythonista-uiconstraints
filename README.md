@@ -104,6 +104,8 @@ Constraint class provides a number of properties you can use to understand how y
 
 Given the current lineup of iPhones and iPads, `is_width_regular`(or `_constrained`, if you prefer) is possibly the most useful of these methods, allowing you to take advantage of the added horizontal space on a pad, or on a phone in landscape orientation.
 
+
+
 Following example defines an additional side panel:
 
     main_frame = ui.View()
@@ -135,9 +137,18 @@ Constraints have this syntax:
     Constrain(target).attribute == Constrain(source).attribute * multiplier + constant
     
 Notes:
-* Relationship can also be `<=` or `>=` (but nothing else)
-* You can also `/` a multiplier or 
+* `target` view is now constrained and unaffected by setting `x`, `y`, `frame` or `center`. `source` view is unaffected and remains in the 'frame mode'.
+* Relationship can be `==`, `<=` or `>=` (but nothing else).
+* You can also `/` a multiplier or `-` a constant, and have several multipliers and constants, but they will only be combined per type (i.e. `* 6 + 1 / 3 - 5` is the same as `* 2 - 4`).
+* Multiplier can be zero or the source left out of the equation, but only if the target attribute is a size attribute, e.g.
+  * `Constrain(target).height == 100`
+* Targets and sources cannot combine:
+  * size and position attributes
+  * vertical and horizontal position attributes
+  * absolute and relative position attributes (e.g. `leading` and `left`)
+  
+These are all Apple restrictions, and the wrapper checks for them to avoid an ObjC exception and a Pythonista crash. Please let me know if you find other crashing combos.
 
-Since this implementation wraps the constraint _factory_ class, [NSLayoutConstraint](https://developer.apple.com/documentation/uikit/nslayoutconstraint), after creation the constraints run with native performance.
+Just to be clear, please note that since this implementation wraps the constraint _factory_ class, [NSLayoutConstraint](https://developer.apple.com/documentation/uikit/nslayoutconstraint), after creation the constraints run with native performance.
 
 
