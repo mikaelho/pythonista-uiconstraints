@@ -138,6 +138,9 @@ Constraints have this syntax:
     
 Notes:
 * `target` view is now constrained and unaffected by setting `x`, `y`, `frame` or `center`. `source` view is unaffected and remains in the 'frame mode'.
+* When you constrain a view, you have to unambiguously constrain its position and size. In addition to the `dock_` methods, there are other useful class methods:
+  * `fit` defines width and height according to the view's preferred size, adding appropriate horizontal margins for Buttons and Labels.
+  * `default_position`, `default_size` and `default` set low-priority constraints based on the size and position (or both) of the view before any constraints were set.
 * Relationship can be `==`, `<=` or `>=` (but nothing else).
 * You can also `/` a multiplier or `-` a constant, and have several multipliers and constants, but they will only be combined per type (i.e. `* 6 + 1 / 3 - 5` is the same as `* 2 - 4`).
 * Multiplier can be zero or the source left out of the equation, but only if the target attribute is a size attribute, e.g.
@@ -151,4 +154,6 @@ These are all Apple restrictions, and the wrapper checks for them to avoid an Ob
 
 Just to be clear, please note that since this implementation wraps the constraint _factory_ class, [NSLayoutConstraint](https://developer.apple.com/documentation/uikit/nslayoutconstraint), after creation the constraints run with native performance.
 
+## Layout guides
 
+## Debugging constraints
