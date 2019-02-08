@@ -3,7 +3,8 @@ from objc_util import *
 import ui, console
 from types import SimpleNamespace
 from copy import copy
-import random
+import random, math
+from collections import defaultdict
 
 NSLayoutConstraint = ObjCClass('NSLayoutConstraint')
 UILayoutGuide = ObjCClass('UILayoutGuide')
@@ -299,13 +300,19 @@ class Constrain:
     return result
         
   @classmethod
-  def deactivate(cls, *constraints):
+  def remove_constraints(cls, view):
+    if hasattr(view, 'layout_constraints'):
+      cls.remove(view.layout_constraints)
+      
+  @classmethod
+  def remove(cls, *constraints):
     for constraint in constraints:
       if type(constraint) in (tuple, list):
-        Constrain.deactivate(*constraint)
+        if len(constraint) == 0: return
+        Constrain.remove(*(constraint.copy()))
       else:
-        self.objc_constraint.setActive_(False)
-        self.view.layout_constraints.remove(self)
+        constraint.objc_constraint.setActive_(False)
+        constraint.view.layout_constraints.remove(constraint)
     
   # LAYOUT GUIDES
     
@@ -656,6 +663,95 @@ class Constrain:
     '''Returns true if the display is relatively tall in the current orientation
     (e.g. phone held in the portrait orientation, or an iPad in any orientation).'''
     return cls.vertical_size_class() == 'regular'
+
+
+  class GridView(View):
+    'Places subviews as squares that optimally fill the available space.'
+    
+    def __init__(self, place=Constrain.dock_center, **kwargs):
+      super().__init__(**kwargs)
+      self.place = place
+    
+    def add_subview(self, subview):
+      super().add_subview(subview)
+      C(self).dock_all()
+      self.layout()
+    
+    def layout(self):
+      count = len(self.subviews)
+      if count == 0: return
+      for view in self.subviews:
+        C.remove_constraints(view)
+      subviews = iter(self.subviews)
+      count_x, count_y = self.dimensions(count)
+      dim = min(self.width/count_x, 
+                self.height/count_y)
+      self_c = C(C.create_guide(self))
+      self_c.width == count_x * dim
+      self_c.height == count_y * dim
+      self.place(self_c)
+      
+      cells = defaultdict(list)
+      #self_c = C(self)
+      for row in range(count_y):
+        for col in range(count_x):
+          try:
+            cell = subviews.__next__()
+          except StopIteration:
+            break
+          cell_c = C(cell)
+          cells[row].append(cell_c)
+          
+          if row == 0 and col == 0:
+            cell_c.width == dim
+            cell_c.height == dim
+          
+          if row == 0:
+            cell_c.top >= self_c.top_margin
+  
+          if row == count_y - 1:
+            cell_c.bottom <= self_c.bottom_margin
+  
+          if col == 0:
+            cell_c.leading >= self_c.leading_margin
+  
+          if col == count_x - 1:
+            cell_c.trailing <= self_c.trailing_margin
+  
+          if row > 0 or col > 0:
+            cell_c.width == cells[0][0].width
+            cell_c.height == cells[0][0].height
+  
+          if col > 0:
+            cell_c.leading >= cells[row][col - 1].trailing_padding
+  
+          if row > 0:
+            cell_c.top >= cells[row - 1][col].bottom_padding
+  
+    def dimensions(self, count):
+      ratio = self.width/self.height
+      count_x = math.sqrt(count * self.width/self.height)
+      count_y = math.sqrt(count * self.height/self.width)
+      operations = (
+        (math.floor, math.floor),
+        (math.floor, math.ceil),
+        (math.ceil, math.floor),
+        (math.ceil, math.ceil)
+      )
+      best = None
+      best_x = None
+      best_y = None
+      for oper in operations:
+        cand_x = oper[0](count_x)
+        cand_y = oper[1](count_y)
+        diff = cand_x*cand_y - count
+        if diff >= 0:
+          if best is None or diff < best:
+            best = diff
+            best_x = cand_x
+            best_y = cand_y         
+      return (best_x, best_y)
+    
 
   class DiagnosticOverlay(ui.View):
     
