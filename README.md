@@ -1,10 +1,21 @@
-# pythonista-uiconstraints
+# UI constraints for Pythonista
 
-Python wrapper for Apple UI view layout constraints.
+Python wrapper for Apple iOS UI view layout constraints.
 
-## Why constraints?
+## Constraints?
 
-Constraints are used to determine how views are laid out in your UI. They are an alternative to the `x`, `y`, `frame` method used in Pythonista by default. You have to pick one or the other for an individual view, as Apple does not make them interoperable.
+Constraints are used to determine how views are laid out in your UI. They are an alternative to the `x`, `y`, `frame` method used in Pythonista by default.
+
+Constraints are equations, which are dynamically evaluated as the dimensions or views of your UI change. For example, the following constraint places the Cancel button always beside the Done button:
+
+    cancel_button.at.trailing == done_button.at.leading_padding
+    
+![Trailing example image](https://github.com/mikaelho/pythonista-uiconstraints/blob/master/images/trailing.jpeg)
+    
+(Here, 'trailing' and 'leading' are same as 'right' and 'left', but automatically reversed if your device is set for a right-to-left language.)
+
+
+You have to pick one or the other for an individual view, as Apple does not make them interoperable.
 
 You can create pretty much all the same layouts and achieve the same level of dynamic behavior just using Pythonista's regular `frame`, `flex` attribute and the `layout` method. The reason to consider constraints is that they, and the convenience methods in this wrapper, provide perhaps a more human way of expressing the desired layout. You can use one-liners for "keep this view below that other view, no matter what happens", or "this view takes over the top half of the screen, with margins", without fiddling with pixel calculations or creating several ui.Views just for the layout.
 
