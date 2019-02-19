@@ -278,6 +278,10 @@ class At:
     
     self.objc_constraint.setActive_(True)
       
+  @property
+  def is_ambiguous(self):
+    return self.view.objc_instance.hasAmbiguousLayout()
+      
   def priority(self, *value):
     '''
     Without value, returns the current priority of the constraint.
@@ -339,7 +343,7 @@ class Dock:
       extra_width = margins.leading + margins.trailing
     self.view.at.width == size.width + extra_width
     self.view.at.height == size.height
-    return self
+    return view
     
   TIGHT = 0
   MARGIN = 1
@@ -546,6 +550,9 @@ class Align:
     return self._align(others)
   def trailing_padding(self, *others):
     return self._align(others)
+  def size(self, *others):
+    self.width(*others)
+    return self.height(*others)
 
     
 class ConstraintView:
@@ -562,34 +569,28 @@ class ConstraintView:
   def dock(self):
     return Dock(self)
 
-class BuiltinExtender():
+
+class Constrainer():
 
   def __new__(extender_subclass, *args, **kwargs):
-    target_instance = extender_subclass._builtin_class()
-    extender_instance = super(BuiltinExtender, extender_subclass).__new__(extender_subclass)
-    for key in dir(extender_instance):
-      if key.startswith('__'): continue
-      value = getattr(extender_instance, key)
-      if callable(value) and type(value) is not type:
-        setattr(target_instance, key, types.MethodType(value.__func__, target_instance))
-      else:
-        setattr(target_instance, key, value)
-    init_op = getattr(extender_subclass, '__init__', None)
-    if callable(init_op):
-      init_op(target_instance, *args, **kwargs)
+    target_instance = extender_subclass._builtin_class(*args, **kwargs)
+    target_instance.at = At(target_instance)
+    target_instance.align = Align(target_instance)
+    target_instance.dock = Dock(target_instance)
     return target_instance
 
 # Generate enabled versions for all ui views
 for key in ui.__dict__:
   value = getattr(ui, key, None)
-  if value and type(value) is type and hasattr(value, 'objc_instance'):
-    globals()[key] = type(key, (BuiltinExtender, ConstraintView), {'_builtin_class': value})
+  if type(value) is type and ui.View in value.mro():
+    globals()[key] = type(key, (Constrainer,), {'_builtin_class': value})
+
 
 def enable(*views):
   ''' All views must be enabled before constraints can be applied. It is safe
   to enable an already-enabled view.
   
-  You can provide several views to be enabled. First view is returned. '''
+  You can provide several views to be enabled. First view is returned.'''
   for view in views:
     assert hasattr(view, 'objc_instance')
     view.at = At(view)
@@ -633,6 +634,24 @@ def remove_guide(guide):
   guide.view = None
   guide.objc_instance = None
       
+def check_ambiguity(view, indent=0):
+  '''Prints all views in the view hierarchy starting with the given view,
+  marking the ones that have ambiguous layout . 
+  Returns a list of ambiguous views.'''
+  ambiguous_views = []
+  layout = '- Frames'
+  if hasattr(view, 'layout_constraints') and len(view.layout_constraints) > 0:
+    layout = '- Constraints'
+    if view.at.is_ambiguous:
+      layout += ' AMBIGUOUS'
+      ambiguous_views.append(view)
+  view_name = view.name
+  if view_name is None or len(view_name) == 0:
+    view_name = str(view)
+  print(' '*indent, view_name, layout)
+  for subview in view.subviews:
+    ambiguous_views += check_ambiguity(subview, indent+1)
+  return ambiguous_views
       
 class Guide(SimpleNamespace):
   
@@ -726,8 +745,34 @@ class Dimensions:
 class GridView(ui.View):
   'Places subviews as squares that fill the available space.'
   
-  def __init__(self, **kwargs):
+  FILL = 'III III'
+  SPREAD = '___ ___'
+  CENTER = '_I_ _I_'
+  TOP = '___ II_'
+  BOTTOM = '___ _II'
+  LEADING = 'II_ ___'
+  TRAILING = '_II ___'
+  TOP_LEADING = 'II_ II_'
+  TOP_TRAILING = '_II II_'
+  BOTTOM_LEADING = 'II_ _II'
+  BOTTOM_TRAILING = '_II _II'
+  CENTER_X = '_I_ ___'
+  CENTER_Y = '___ _I_'
+  
+  def __init__(self, pack=SPREAD, count_x=None, count_y=None, **kwargs):
     super().__init__(**kwargs)
+    if type(pack) is not str or len(pack) != 7:
+      raise ValueError('pack attribute must be one of the packing constants')
+    self.leading_free = pack[0] == '_'
+    self.center_x_free = pack[1] == '_'
+    self.trailing_free = pack[2] == '_'
+    self.top_free = pack[4] == '_'
+    self.center_y_free = pack[5] == '_'
+    self.bottom_free = pack[6] == '_'
+
+    self.count_x = count_x
+    self.count_y = count_y
+
     enable(self)
   
   def add_subview(self, subview):
@@ -742,7 +787,16 @@ class GridView(ui.View):
       enable(view)
     remove_guides(self)
     subviews = iter(self.subviews)
-    count_x, count_y = self.dimensions(count)
+    count_x, count_y = self.count_x, self.count_y
+    if count_x is None and count_y is None:
+      count_x, count_y = self.dimensions(count)
+    elif count_x is None:
+      count_x = math.ceil(count/count_y)
+    elif count_y is None:
+      count_y = math.ceil(count/count_x)
+    if count > count_x * count_y:
+      raise ValueError(
+        f'Fixed counts (x: {count_x}, y: {count_y}) not enough to display all views')
     dim = min(self.width/count_x, 
               self.height/count_y)
               
@@ -750,24 +804,57 @@ class GridView(ui.View):
     row_guides = [Guide(self) for _ in range(count_y+1)]
     first_col_guide = col_guides[0]
     last_col_guide = col_guides[-1]
+    free_cols = []
     for guide in col_guides:
-      if guide == first_col_guide:
+      free = False
+      if guide == first_col_guide and self.leading_free:
+        free = True
+      elif guide == last_col_guide and self.trailing_free:
+        free = True
+      elif self.center_x_free:
+        free = True
+      
+      if free:
         guide.at.width >= At.standard
-        guide.at.leading = self.at.leading
+        free_cols.append(guide)
       else:
-        guide.at.width == first_col_guide.at.width
+        guide.at.width == At.standard
+        
+      if guide == first_col_guide:
+        guide.at.leading = self.at.leading
       if guide == last_col_guide:
         guide.at.trailing == self.at.trailing
+    
+    if len(free_cols) > 1:
+      for guide in free_cols[1:]:
+        guide.align.width(free_cols[0])
+        
     first_row_guide = row_guides[0]
     last_row_guide = row_guides[-1]
+    free_rows = []
     for guide in row_guides:
-      if guide == first_row_guide:
+      free = False
+      if guide == first_row_guide and self.top_free:
+        free = True
+      elif guide == last_row_guide and self.bottom_free:
+        free = True
+      elif self.center_y_free:
+        free = True
+      
+      if free:
         guide.at.height >= At.standard
-        guide.at.top == self.at.top
+        free_rows.append(guide)
       else:
-        guide.at.height == first_row_guide.at.height
+        guide.at.height == At.standard
+        
+      if guide == first_row_guide:
+        guide.at.top = self.at.top
       if guide == last_row_guide:
         guide.at.bottom == self.at.bottom
+    
+    if len(free_rows) > 1:
+      for guide in free_rows[1:]:
+        guide.align.height(free_rows[0])
     
     cells = defaultdict(list)
     for row in range(count_y):
@@ -783,8 +870,7 @@ class GridView(ui.View):
           cell.at.priority(400).width == dim
           cell.at.priority(400).height == dim
         else:
-          cell.align.width(cells[0][0])
-          cell.align.height(cells[0][0])
+          cell.align.size(cells[0][0])
         
         cell.at.top == row_guides[row].at.bottom
         
@@ -793,23 +879,6 @@ class GridView(ui.View):
         cell.at.leading == col_guides[col].at.trailing
         
         cell.at.trailing == col_guides[col+1].at.leading
-        
-        '''
-        if row == count_y - 1:
-          cell.at.bottom <= self.at.bottom_margin
-
-        if col == 0:
-          cell.at.leading >= self.at.leading_margin
-
-        if col == count_x - 1:
-          cell.at.trailing <= self.at.trailing_margin
-
-        if col > 0:
-          cell.at.leading >= cells[row][col - 1].at.trailing_padding
-
-        if row > 0:
-          cell.at.top >= cells[row - 1][col].at.bottom_padding
-        '''
 
   def dimensions(self, count):
     ratio = self.width/self.height
@@ -1051,13 +1120,13 @@ if __name__ == '__main__':
     def create_ui(self):    
       self.style(self)
       
-      main_frame = enable(ui.View(name='Main frame'))
+      main_frame = View(name='Main frame')
       self.add_subview(main_frame)
       
-      side_panel = enable(ui.Label(
+      side_panel = Label(
         name='Side panel',
         text='Side navigation panel', 
-        alignment=ui.ALIGN_CENTER))
+        alignment=ui.ALIGN_CENTER)
       self.style(side_panel)
       self.add_subview(side_panel)
       
@@ -1071,23 +1140,24 @@ if __name__ == '__main__':
       
       side_panel.at.trailing == main_frame.at.leading
       
-      search_field = enable(ui.TextField(
+      search_field = TextField(
         name='Searchfield', 
-        placeholder='Search path'))
+        placeholder='Search path')
       main_frame.add_subview(search_field)
       self.style(search_field)
       
-      search_button = fit(ui.Button(
-        name='Search', title='Search'))
+      search_button = Button(
+        name='Search', 
+        title='Search').dock.fit()
       main_frame.add_subview(search_button)
       self.style(search_button)
       
-      result_area = enable(GridView())
+      result_area = GridView()
       main_frame.add_subview(result_area)
       self.style(result_area)
       
-      done_button = fit(ui.Button(
-        name='Done', title='Done'))
+      done_button = Button(
+        name='Done', title='Done').dock.fit()
       main_frame.add_subview(done_button)
       self.style(done_button)
       
@@ -1095,8 +1165,9 @@ if __name__ == '__main__':
         root.close()
       done_button.action = done
       
-      cancel_button = fit(ui.Button(
-        name='Cancel', title='Cancel'))
+      cancel_button = Button(
+        name='Cancel',
+        title='Cancel').dock.fit()
       main_frame.add_subview(cancel_button)
       self.style(cancel_button)
 
@@ -1112,13 +1183,14 @@ if __name__ == '__main__':
         search_button, done_button)
       
       for _ in range(5):
-        content_view = ui.View()
+        content_view = View()
         self.style(content_view)
         result_area.add_subview(content_view) 
       
       #DiagnosticOverlay(self, 
       #  start=result_area,
       #  attributes=[])
+      check_ambiguity(self)
 
   root = LayoutDemo()
   root.present('full_screen', hide_title_bar=True, animated=False)
