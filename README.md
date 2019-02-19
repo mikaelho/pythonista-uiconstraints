@@ -1,6 +1,6 @@
 # anchor - UI constraints for Pythonista
 
-Python wrapper for Apple iOS UI view layout constraints, [available](https://github.com/mikaelho/pythonista-uiconstraints) on GitHub.
+Python wrapper for Apple iOS UI view layout constraints, [available](https://github.com/mikaelho/pythonista-uiconstraints) as `anchor.py` on GitHub.
 
 ## Constraints?
 
