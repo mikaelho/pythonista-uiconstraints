@@ -1214,7 +1214,7 @@ if __name__ == '__main__':
       #DiagnosticOverlay(self, 
       #  start=result_area,
       #  attributes=[])
-      check_ambiguity(self)
+      #check_ambiguity(self)
 
   root = LayoutDemo()
   root.present('full_screen', hide_title_bar=True, animated=False)

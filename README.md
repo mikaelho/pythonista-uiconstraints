@@ -1,6 +1,6 @@
 # anchor - UI constraints for Pythonista
 
-Python wrapper for Apple iOS UI view layout constraints, [available](https://github.com/mikaelho/pythonista-uiconstraints) as `anchor.py` on GitHub.
+Python wrapper for Apple iOS UI view layout constraints, [available](https://github.com/mikaelho/pythonista-uiconstraints) as `anchor.py` on GitHub. Run the file to see a sample constraint-driven layout.
 
 ## Constraints?
 
@@ -24,6 +24,14 @@ Constraints can use the following attributes:
 	* Use these when you want to leave a standard margin between the view and the edge of its superview (inside margin).
 *     `left_padding, right_padding, top_padding, bottom_padding, leading_padding, trailing_padding`
 	* Use these when you want to leave a standard margin between the view and the view next to it (outside margin).
+
+## Why would I need them?
+
+It depends on your style and preferences regarding building UIs.
+
+You can create pretty much all the same layouts and achieve the same level of dynamic behavior just using Pythonista's regular `frame`, `flex` attribute and the `layout` method.
+
+The reason to consider constraints is that they, and the convenience methods in this wrapper, provide perhaps a more human way of expressing the desired layout. You can use one-liners for "keep this view below that other view, no matter what happens", or "this view takes over the top half of the screen, with margins", without fiddling with pixel calculations or creating several ui.Views just for the layout.
 
 ## Anatomy of a constraint
 
