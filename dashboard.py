@@ -2,6 +2,7 @@
 
 from dashboard_conf import *
 import asyncui
+import asyncio
 from ui import *
 from uiconstraints import Constrain as C
 
@@ -209,9 +210,11 @@ class Dashboard(asyncui.AsyncUIView):
   async def get_car_data(self):
     if self.token is None:
       await self.carnet_logon()
-    self.call_soon(self.get_status())
-    self.call_soon(self.get_heat_related())
-    self.call_soon(self.get_charge_data())
+    while True:
+      await asyncio.sleep(5)
+      self.call_soon(self.get_status())
+      self.call_soon(self.get_heat_related())
+      self.call_soon(self.get_charge_data())
     
   # Fake the VW CarNet mobile app headers
   HEADERS = {

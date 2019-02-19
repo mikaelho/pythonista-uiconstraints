@@ -278,10 +278,6 @@ class At:
     
     self.objc_constraint.setActive_(True)
       
-  @property
-  def is_ambiguous(self):
-    return self.view.objc_instance.hasAmbiguousLayout()
-      
   def priority(self, *value):
     '''
     Without value, returns the current priority of the constraint.
@@ -313,6 +309,17 @@ class At:
           'Cannot change priority value between required (1000) and lower value')
       self.objc_constraint.setPriority_(value)
     return self
+    
+  @property
+  def is_ambiguous(self):
+    '''Returns true if the constraints for this view are not disambiguous 
+    (position and size are not defined in a way that can be resolved by the
+    system.)'''
+    return self.view.objc_instance.hasAmbiguousLayout()
+    
+  def exercise_ambiguity(self):
+    self.view.objc_instance.exerciseAmbiguityInLayout()
+    
     
 class Dock:
   '''Dock methods are focused on connecting different sides of the view to its 
@@ -759,7 +766,23 @@ class GridView(ui.View):
   CENTER_X = '_I_ ___'
   CENTER_Y = '___ _I_'
   
-  def __init__(self, pack=SPREAD, count_x=None, count_y=None, **kwargs):
+  def __init__(self, pack=CENTER, count_x=None, count_y=None, **kwargs):
+    '''By default, subviews are laid out in a grid as squares of optimal size and
+    centered in the view.
+    
+    You can fix the amount of views in either dimension with the `count_x` or
+    `count_y` parameter, or change the packing behaviour by providing
+    the `pack` parameter with one of the following values:
+      
+      * `CENTER` - Clustered in the center (the default)
+      * `SPREAD` - Distributed evenly
+      * `FILL` - Fill the available space with only margins in between
+        (no longer squares)
+      * `TOP, BOTTOM, LEADING, TRAILING, TOP_LEADING, TOP_TRAILING, 
+        BOTTOM_LEADING, BOTTOM_TRAILING, CENTER_X, CENTER_Y` - Clustered in a
+        specific corner
+    '''
+    
     super().__init__(**kwargs)
     if type(pack) is not str or len(pack) != 7:
       raise ValueError('pack attribute must be one of the packing constants')
@@ -906,6 +929,7 @@ class GridView(ui.View):
     
     
 class DiagnosticOverlay(ui.View):
+  '''Shows constraints as markers on top of the UI.'''
   
   class ConnectorOverlay(ui.View):
     
@@ -1181,7 +1205,7 @@ if __name__ == '__main__':
       cancel_button.align.top(done_button)
       result_area.dock.horizontal_between(
         search_button, done_button)
-      
+   
       for _ in range(5):
         content_view = View()
         self.style(content_view)
