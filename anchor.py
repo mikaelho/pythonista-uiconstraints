@@ -557,9 +557,14 @@ class Align:
     return self._align(others)
   def trailing_padding(self, *others):
     return self._align(others)
+    
   def size(self, *others):
     self.width(*others)
     return self.height(*others)
+    
+  def center(self, *others):
+    self.center_x(*others)
+    return self.center_y(*others)
 
     
 class ConstraintView:

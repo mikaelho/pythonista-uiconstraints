@@ -72,8 +72,30 @@ An alternative is to use already-enabled versions of every Pythonista UI view cl
     
 ## Convenient view alignment
 
-Enabled views have an `align` attribute that is a convenient way to align the same attribute of two or more views at once. For example, aligning 
+Enabled views have an `align` attribute that is a convenient way to align matching attributes of views. For example, aligning the heights of two views:
+
+    search_field.align.height(search_button)
     
+![Alignment example](https://raw.githubusercontent.com/mikaelho/pythonista-uiconstraints/master/images/aligning.jpeg)
+
+Using `align` is especially convenient when you need to align several views at once:
+    
+      view_a.align.center_x(view_b, view_c)
+      
+In addition to all the regular constraint attributes like `height` and `center_x` in the examples above, `align` supports conveniently aligning the composite attributes `size` and `center`.
+
+## Convenient view placement within superview
+
+Creating individual constraints can quickly become a bit of a bore, so the wrapper includes a number of convenience methods for "docking" views.
+
+For example, the following places constraints to the top and both sides, leaving height still undefined:
+
+    view.dock.top()
+
+![Dock top example](https://raw.githubusercontent.com/mikaelho/pythonista-uiconstraints/master/images/docktop.jpeg)
+
+
+
 ## Ambiguous constraints
 
 When you constrain a view, you have to unambiguously constrain both its position and size. If you miss something, the view usually is not visible at all. To debug constraints, you can either check an individual view for problems with:
