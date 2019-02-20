@@ -10,19 +10,19 @@ Constraints are defined as equations, which are dynamically evaluated as the dim
 
     cancel_button.at.trailing == done_button.at.leading_padding
     
-![Trailing example image](https://github.com/mikaelho/pythonista-uiconstraints/blob/master/images/trailing.jpeg)
+![Trailing example image](https://raw.githubusercontent.com/mikaelho/pythonista-uiconstraints/master/images/trailing.jpeg)
     
 (Here, 'trailing' and 'leading' are same as 'right' and 'left', but automatically reversed if your device is set for a right-to-left language.)
 
 Constraints can use the following attributes:
 
-*     `left, right, top, bottom, width, height`
-*     `leading, trailing`
-*     `center_x, center_y`
-*     `last_baseline, first_baseline`
-*     `left_margin, right_margin, top_margin, bottom_margin, leading_margin, trailing_margin`
+* `left, right, top, bottom, width, height`
+* `leading, trailing`
+* `center_x, center_y`
+* `last_baseline, first_baseline`
+* `left_margin, right_margin, top_margin, bottom_margin, leading_margin, trailing_margin`
 	* Use these when you want to leave a standard margin between the view and the edge of its superview (inside margin).
-*     `left_padding, right_padding, top_padding, bottom_padding, leading_padding, trailing_padding`
+* `left_padding, right_padding, top_padding, bottom_padding, leading_padding, trailing_padding`
 	* Use these when you want to leave a standard margin between the view and the view next to it (outside margin).
 
 ## Why would I need them?
@@ -69,6 +69,10 @@ An alternative is to use already-enabled versions of every Pythonista UI view cl
     
     label = Label(alignment=ALIGN_CENTER)
     label.at.width == 100
+    
+## Convenient view alignment
+
+Enabled views have an `align` attribute that is a convenient way to align the same attribute of two or more views at once. For example, aligning 
     
 ## Ambiguous constraints
 
