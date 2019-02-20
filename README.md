@@ -115,11 +115,15 @@ You can also change the default by setting the `Dock.default_fit` parameter, e.g
 
     Dock.default_fit = Dock TIGHT
     
-Most `dock` methods support a `share` parameter that can be used to define how much of the superview's area the view should take: 
+Many `dock` methods support `share` and `constant` parameters.
+
+`share` parameter can be used to define how much of the superview's area the view should take: 
 
     view.dock.top(share=.5)
 
 This is only exact if you use `TIGHT` fit, as there is no way to dynamically account for the space taken by margins.
+
+`constant` parameter can be used to adjust the margins manually, although I feel that this is probably bad layout design.
 
 ## Ambiguous constraints
 
