@@ -72,7 +72,7 @@ An alternative is to use already-enabled versions of every Pythonista UI view cl
     
 ## Convenient view alignment
 
-Enabled views have an `align` attribute that is a convenient way to align matching attributes of views. For example, aligning the heights of two views:
+Enabled views have an `align` attribute that supports aligning matching attributes of views. For example, aligning the heights of two views:
 
     search_field.align.height(search_button)
     
@@ -82,11 +82,11 @@ Using `align` is especially convenient when you need to align several views at o
     
       view_a.align.center_x(view_b, view_c)
       
-In addition to all the regular constraint attributes like `height` and `center_x` in the examples above, `align` supports conveniently aligning the composite attributes `size` and `center`.
+In addition to all the regular constraint attributes like `height` and `center_x` in the examples above, `align` supports aligning the composite attributes `size` and `center`.
 
 ## Convenient view placement within superview
 
-Creating individual constraints can quickly become a bit of a bore, so the wrapper includes a number of convenience methods for "docking" views.
+Creating individual constraints can quickly become a bit of a bore. Thus the wrapper includes a number of methods for "docking" views.
 
 For example, the following places constraints to the top and both sides, leaving height still undefined:
 
@@ -94,7 +94,32 @@ For example, the following places constraints to the top and both sides, leaving
 
 ![Dock top example](https://raw.githubusercontent.com/mikaelho/pythonista-uiconstraints/master/images/docktop.jpeg)
 
+Following docking methods are available:
 
+* `dock_all, dock_center, dock_horizontal, dock_vertical, dock_horizontal_between, dock_vertical_between, dock_top, dock_bottom, dock_leading, dock_trailing, dock_top_leading, dock_top_trailing, dock_bottom_leading, dock_bottom_trailing`
+
+The most specialized of these are the `_between` methods, which dock the view to the sides in one direction, and between the two given views in another. Here's an example:
+
+    result_area.dock.horizontal_between(
+      search_button, done_button)
+      
+![Dock between example](https://raw.githubusercontent.com/mikaelho/pythonista-uiconstraints/master/images/between.jpeg)
+
+By default, `dock` methods leave a margin between the edges of the superview and the view. This can be adjusted with the `fit` parameter:
+
+* `Dock.MARGIN` (the default) - standard margin
+* `Dock.TIGHT` - no margin
+* `Dock.SAFE` - align to the safe area insets, if applicable
+
+You can also change the default by setting the `Dock.default_fit` parameter, e.g.:
+
+    Dock.default_fit = Dock TIGHT
+    
+Most `dock` methods support a `share` parameter that can be used to define how much of the superview's area the view should take: 
+
+    view.dock.top(share=.5)
+
+This is only exact if you use `TIGHT` fit, as there is no way to dynamically account for the space taken by margins.
 
 ## Ambiguous constraints
 
