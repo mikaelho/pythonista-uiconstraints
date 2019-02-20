@@ -2,6 +2,13 @@
 
 Python wrapper for Apple iOS UI view layout constraints, [available](https://github.com/mikaelho/pythonista-uiconstraints) as `anchor.py` on GitHub. Run the file to see a sample constraint-driven layout.
 
+:toc: macro
+:toc-title:
+:toclevels: 99
+
+# Table of Contents
+toc::[]
+
 ## Constraints?
 
 Constraints are used to determine how views are laid out in your UI. They are an alternative to the `x`, `y`, `frame` method used in Pythonista by default.
