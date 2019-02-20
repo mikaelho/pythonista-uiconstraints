@@ -96,7 +96,7 @@ For example, the following places constraints to the top and both sides, leaving
 
 Following docking methods are available:
 
-* `dock_all, dock_center, dock_horizontal, dock_vertical, dock_horizontal_between, dock_vertical_between, dock_top, dock_bottom, dock_leading, dock_trailing, dock_top_leading, dock_top_trailing, dock_bottom_leading, dock_bottom_trailing`
+* `all, center, horizontal, vertical, horizontal_between, vertical_between, top, bottom, leading, trailing, top_leading, top_trailing, bottom_leading, bottom_trailing`
 
 The most specialized of these are the `_between` methods, which dock the view to the sides in one direction, and between the two given views in another. Here's an example:
 
