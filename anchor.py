@@ -113,25 +113,31 @@ class At:
     c._create_constraint(other)
     return c
   
-  def _get(prop, attribute, name, type):
+  def _get(prop, attribute, name, type_str):
     '''Property creator for constraint
     attributes'''
     return property(
       lambda self:
-        partial(prop, self, attribute, name, type)(),
+        partial(prop, self, attribute, name, type_str)(),
       lambda self, value:
-        partial(prop, self, attribute, name, type, value)()
+        partial(prop, self, attribute, name, type_str, value)()
     )
     
-  def _prop(self, attribute, name, type, *values):
+  def _prop(self, attribute, name, type_str, *values):
     '''Combined getter/setter for
     constraint attributes.
     Effectively makes using assignment ('=')
     and equality comparison ('==') equal.'''
+    
+    if type(self.view) is Guide:
+      if attribute > 10:
+        raise AttributeError(
+          f"Cannot use attribute '{name}' with a layout guide")
+          
     c = copy(self)
     c.attribute = attribute
     c.attribute_name = name
-    c.attribute_type = type
+    c.attribute_type = type_str
     return (c == values[0]) if len(values) else c
     
   # Attribute properties - numbers are
@@ -757,21 +763,22 @@ class Dimensions:
 class GridView(ui.View):
   'Places subviews as squares that fill the available space.'
   
-  FILL = 'III III'
-  SPREAD = '___ ___'
-  CENTER = '_I_ _I_'
-  TOP = '___ II_'
-  BOTTOM = '___ _II'
-  LEADING = 'II_ ___'
-  TRAILING = '_II ___'
-  TOP_LEADING = 'II_ II_'
-  TOP_TRAILING = '_II II_'
-  BOTTOM_LEADING = 'II_ _II'
-  BOTTOM_TRAILING = '_II _II'
-  CENTER_X = '_I_ ___'
-  CENTER_Y = '___ _I_'
+  FILL = 'III'
+  SPREAD = '___'
+  CENTER = '_I_'
+  START = 'II_'
+  END = '_II'
+  SIDES = 'I_I'
+  START_SPREAD = 'I__'
+  END_SPREAD = '__I'
   
-  def __init__(self, pack=CENTER, count_x=None, count_y=None, **kwargs):
+  MARGIN = At.standard
+  TIGHT = 0
+  
+  def __init__(self,
+    pack_x=START_SPREAD, pack_y=END_SPREAD,
+    count_x=None, count_y=None,
+    gap=MARGIN, **kwargs):
     '''By default, subviews are laid out in a grid as squares of optimal size and
     centered in the view.
     
@@ -783,23 +790,23 @@ class GridView(ui.View):
       * `SPREAD` - Distributed evenly
       * `FILL` - Fill the available space with only margins in between
         (no longer squares)
-      * `TOP, BOTTOM, LEADING, TRAILING, TOP_LEADING, TOP_TRAILING, 
-        BOTTOM_LEADING, BOTTOM_TRAILING, CENTER_X, CENTER_Y` - Clustered in a
-        specific corner
+      * `LEADING, TRAILING` (`pack_x` only)
+      * `TOP, BOTTOM` (`pack_y` only)
     '''
     
     super().__init__(**kwargs)
-    if type(pack) is not str or len(pack) != 7:
-      raise ValueError('pack attribute must be one of the packing constants')
-    self.leading_free = pack[0] == '_'
-    self.center_x_free = pack[1] == '_'
-    self.trailing_free = pack[2] == '_'
-    self.top_free = pack[4] == '_'
-    self.center_y_free = pack[5] == '_'
-    self.bottom_free = pack[6] == '_'
+
+    self.leading_free = pack_x[0] == '_'
+    self.center_x_free = pack_x[1] == '_'
+    self.trailing_free = pack_x[2] == '_'
+    self.top_free = pack_y[0] == '_'
+    self.center_y_free = pack_y[1] == '_'
+    self.bottom_free = pack_y[2] == '_'
 
     self.count_x = count_x
     self.count_y = count_y
+    
+    self.gap = gap
 
     enable(self)
   
@@ -835,23 +842,22 @@ class GridView(ui.View):
     free_cols = []
     for guide in col_guides:
       free = False
-      if guide == first_col_guide and self.leading_free:
-        free = True
-      elif guide == last_col_guide and self.trailing_free:
-        free = True
+      if guide == first_col_guide:
+        guide.at.leading == self.at.leading
+        if self.leading_free:
+          free = True
+      elif guide == last_col_guide:
+        guide.at.trailing == self.at.trailing
+        if self.trailing_free:
+          free = True
       elif self.center_x_free:
         free = True
       
       if free:
-        guide.at.width >= At.standard
+        guide.at.width >= self.gap
         free_cols.append(guide)
       else:
-        guide.at.width == At.standard
-        
-      if guide == first_col_guide:
-        guide.at.leading = self.at.leading
-      if guide == last_col_guide:
-        guide.at.trailing == self.at.trailing
+        guide.at.width == self.gap
     
     if len(free_cols) > 1:
       for guide in free_cols[1:]:
@@ -862,23 +868,22 @@ class GridView(ui.View):
     free_rows = []
     for guide in row_guides:
       free = False
-      if guide == first_row_guide and self.top_free:
-        free = True
-      elif guide == last_row_guide and self.bottom_free:
-        free = True
+      if guide == first_row_guide:
+        guide.at.top == self.at.top
+        if self.top_free:
+          free = True
+      elif guide == last_row_guide:
+        guide.at.bottom == self.at.bottom
+        if self.bottom_free:
+          free = True
       elif self.center_y_free:
         free = True
       
       if free:
-        guide.at.height >= At.standard
+        guide.at.height >= self.gap
         free_rows.append(guide)
       else:
-        guide.at.height == At.standard
-        
-      if guide == first_row_guide:
-        guide.at.top = self.at.top
-      if guide == last_row_guide:
-        guide.at.bottom == self.at.bottom
+        guide.at.height == self.gap
     
     if len(free_rows) > 1:
       for guide in free_rows[1:]:

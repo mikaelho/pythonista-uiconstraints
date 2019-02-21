@@ -2,13 +2,6 @@
 
 Python wrapper for Apple iOS UI view layout constraints, [available](https://github.com/mikaelho/pythonista-uiconstraints) as `anchor.py` on GitHub. Run the file to see a sample constraint-driven layout.
 
-:toc: macro
-:toc-title:
-:toclevels: 99
-
-# Table of Contents
-toc::[]
-
 ## Constraints?
 
 Constraints are used to determine how views are laid out in your UI. They are an alternative to the `x`, `y`, `frame` method used in Pythonista by default.
@@ -132,13 +125,31 @@ This is only exact if you use `TIGHT` fit, as there is no way to dynamically acc
 
 `constant` parameter can be used to adjust the margins manually, although I feel that this is probably bad layout design.
 
+## Layout guides
+
+A significant advantage of constraint-based layouts is ability to use layout guides, which act similarly to views for layout purposes, without really being views and without impacting your view hierarchy in any way.
+
+Guides always have an owning view and are straightforward to create:
+
+    guide = anchor.Guide(view)
+    
+Since guides are never displayed, their constraints can be a bit ambiguous as well. For example, if you want to use a guide as a vertical divider between two views, the height of the guide does not need to be defined:
+
+    guide.at.width == 50
+    view_a.at.trailing == guide.at.leading
+    view_b.at.leading == guide.at.trailing
+    
+GridView, introduced elsewhere, uses guides in this way to achieve smart spacing between the views in the grid.
+
+Guides only respond to a limited set of layout attributes: `left, right, top, bottom, leading, trailing, center_x, center_y, width, height`. Using other attributes with guides will raise an `AttributeError`.
+
 ## Ambiguous constraints
 
 When you constrain a view, you have to unambiguously constrain both its position and size. If you miss something, the view usually is not visible at all. To debug constraints, you can either check an individual view for problems with:
 
     view.at.is_ambiguous
 
-Or check your whole view hierarchy by:
+... or check your view hierarchy by:
 
     anchor.check_ambiguity(root_view)
     
