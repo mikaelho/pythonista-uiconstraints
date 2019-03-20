@@ -155,6 +155,4 @@ When you constrain a view, you have to unambiguously constrain both its position
     
 This will print out the whole hierarchy, and return any ambiguous views as a list.
 
-anchor also includes a 
-
 _To be continued_
