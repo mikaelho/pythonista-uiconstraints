@@ -143,7 +143,7 @@ GridView, introduced elsewhere, uses guides in this way to achieve smart spacing
 
 Guides only respond to a limited set of layout attributes: `left, right, top, bottom, leading, trailing, center_x, center_y, width, height`. Using other attributes with guides will raise an `AttributeError`.
 
-## Ambiguous constraints
+## Debugging constraints
 
 When you constrain a view, you have to unambiguously constrain both its position and size. If you miss something, the view usually is not visible at all. To debug constraints, you can either check an individual view for problems with:
 
@@ -154,5 +154,7 @@ When you constrain a view, you have to unambiguously constrain both its position
     anchor.check_ambiguity(root_view)
     
 This will print out the whole hierarchy, and return any ambiguous views as a list.
+
+anchor also includes a 
 
 _To be continued_
