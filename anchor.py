@@ -1,16 +1,16 @@
 #coding: utf-8
-from objc_util import *
+import objc_util
 import ui
-import inspect, gc, types, sys, random, math, inspect
+import inspect, gc, types, sys, random, math
 from types import SimpleNamespace
 from copy import copy
 from collections import defaultdict
 from functools import partial
 
-NSLayoutConstraint = ObjCClass('NSLayoutConstraint')
-UILayoutGuide = ObjCClass('UILayoutGuide')
-UIDevice = ObjCClass('UIDevice')
-UIViewPropertyAnimator = ObjCClass('UIViewPropertyAnimator')
+NSLayoutConstraint = objc_util.ObjCClass('NSLayoutConstraint')
+UILayoutGuide = objc_util.ObjCClass('UILayoutGuide')
+UIDevice = objc_util.ObjCClass('UIDevice')
+UIViewPropertyAnimator = objc_util.ObjCClass('UIViewPropertyAnimator')
 
 def prop(func):
   'Combined getter/setter property'
@@ -33,9 +33,15 @@ class At:
     self.other_attribute_name = 'na'
     self.other_attribute_type = 'NNN'
     self.multiplier = 1
+    self.description = None
     self._constant = 0
     self._priority = priority
-    self.objc_constraint = None
+    
+  @property
+  def objc_constraint(self):
+    if self.description is None:
+      return None
+    return find_constraint(self.view, self.description)
     
   @property
   def constant(self):
@@ -48,8 +54,6 @@ class At:
   @constant.setter
   def constant(self, value):
     self._constant = value
-    if self.objc_constraint:
-      self.objc_constraint.setConstant_(value)
     
   def __str__(self):
     #return str(self.objc_constraint)
@@ -117,12 +121,13 @@ class At:
   def _get(prop, attribute, name, type_str):
     '''Property creator for constraint
     attributes'''
-    return property(
+    p = property(
       lambda self:
         partial(prop, self, attribute, name, type_str)(),
       lambda self, value:
         partial(prop, self, attribute, name, type_str, value)()
     )
+    return p
     
   def _prop(self, attribute, name, type_str, *values):
     '''Combined getter/setter for
@@ -143,10 +148,13 @@ class At:
     
   # Attribute properties - numbers are
   # Apple NSLayoutConstraint constants
-  # Code contains:
-  #   Position/Size
-  #   Horizontal/Vertical/NA
-  #   Absolute/Relative/NA
+  
+  # Magical code contains three letters:
+  #   1. Position/Size
+  #   2. Horizontal/Vertical/NA
+  #   3. Absolute/Relative/NA
+  # These are used to check constraint
+  # compatibility
   left = _get(_prop, 1, 'left', 'PHA')
   right = _get(_prop, 2, 'right', 'PHA')
   top = _get(_prop, 3, 'top', 'PVN')
@@ -233,7 +241,7 @@ class At:
       name='Margins',
       superview=self.view))
 
-  @on_main_thread
+  @objc_util.on_main_thread
   def _create_constraint(self, other):
     if isinstance(other, At):
       self.other_view = other.view
@@ -267,12 +275,8 @@ class At:
       #C._set_defaults(self.view)
       #if type(self.view) in C.autofit_types:
       #self.size_to_fit()
-      
-    layout_constraints = getattr(self.view, 'layout_constraints', [])
-    layout_constraints.append(self)
-    self.view.layout_constraints = layout_constraints
 
-    self.objc_constraint = NSLayoutConstraint.\
+    objc_constraint = NSLayoutConstraint.\
     PG_constraintWithItem_attribute_relatedBy_toItem_attribute_multiplier_constant_priority_(
       self.view.objc_instance,
       self.attribute,
@@ -284,7 +288,8 @@ class At:
       self._priority
     )
     
-    self.objc_constraint.setActive_(True)
+    objc_constraint.setActive_(True)
+    self.description = str(objc_constraint._deallocSafeDescription())
       
   def priority(self, *value):
     '''
@@ -348,7 +353,7 @@ class Dock:
     
   extra_width_types = [ui.Label, ui.Button]
     
-  @on_main_thread
+  @objc_util.on_main_thread
   def fit(self):
     'Set size constraints according to the views preferred size.'
     view = self.view
@@ -628,6 +633,38 @@ def fit(*views):
     enable(view)
     view.dock.fit()
   return views[0]
+ 
+@objc_util.on_main_thread 
+def find_constraint(view, description):
+  objc_view = view.objc_instance
+  while view:
+    for c in view.objc_instance.constraints():
+      if str(c._deallocSafeDescription()) == description:
+        return c
+    view = view.superview
+ 
+@objc_util.on_main_thread 
+def find_constraints(view, first=True, second=False, active_only=True, filter=None):
+  objc_view = view.objc_instance
+  constraints = []
+  if filter is None:
+    filter = []
+  elif type(filter) not in (tuple, list):
+    filter = [filter]
+  filter = [inspect.getclosurevars(filter_prop.fget).nonlocals['attribute'] for filter_prop in filter]
+  while view:
+    for c in view.objc_instance.constraints():
+      if (
+        (first and c.firstItem() == objc_view) or
+        (second and c.secondItem() == objc_view)
+      ) and (
+        c.active() or not active_only
+      ) and (
+        len(filter) == 0 or c.firstAttribute() in filter
+      ):
+        constraints.append(c)
+    view = view.superview
+  return constraints
   
 def remove_constraints(view, filter=None):
   if hasattr(view, 'layout_constraints'):
@@ -637,18 +674,8 @@ def remove_constraints(view, filter=None):
         continue
       remove_constraint(constraint)
     #remove_constraint(view.layout_constraints)
-    
-@on_main_thread
-def remove_constraint(*constraints):
-  for constraint in constraints:
-    if type(constraint) in (tuple, list):
-      if len(constraint) == 0: return
-      remove_constraint(*(constraint.copy()))
-    else:
-      constraint.objc_constraint.setActive_(False)
-      constraint.view.layout_constraints.remove(constraint)
  
-@on_main_thread     
+@objc_util.on_main_thread     
 def remove_guides(view):
   ''' Removes all layout guides from a view. '''
   vo = view.objc_instance
@@ -657,7 +684,7 @@ def remove_guides(view):
     for guide in vo.layoutGuides():
       vo.removeLayoutGuide_(guide)
 
-@on_main_thread      
+@objc_util.on_main_thread      
 def remove_guide(guide):
   ''' Remove the given guide from its owner. '''
   vo = guide.view.objc_instance
@@ -671,7 +698,7 @@ def check_ambiguity(view, indent=0):
   Returns a list of ambiguous views.'''
   ambiguous_views = []
   layout = '- Frames'
-  if hasattr(view, 'layout_constraints') and len(view.layout_constraints) > 0:
+  if view.objc_instance.translatesAutoresizingMaskIntoConstraints():
     layout = '- Constraints'
     if view.at.is_ambiguous:
       layout += ' AMBIGUOUS'
@@ -686,7 +713,7 @@ def check_ambiguity(view, indent=0):
       
 class Guide(SimpleNamespace):
   
-  @on_main_thread
+  @objc_util.on_main_thread
   def __init__(self, view):
     guide = UILayoutGuide.new().autorelease()
     view.objc_instance.addLayoutGuide_(guide)
@@ -740,7 +767,7 @@ class Dimensions:
   @classmethod
   def is_phone(cls):
     "Returns true if the device is a phone-type device."
-    return UIApplication.sharedApplication().keyWindow().traitCollection().\
+    return objc_util.UIApplication.sharedApplication().keyWindow().traitCollection().\
     userInterfaceIdiom() == 0
     
   @classmethod
@@ -790,7 +817,7 @@ class GridView(ui.View):
   TIGHT = 0
   
   def __init__(self,
-    pack_x=CENTER, pack_y=CENTER,
+    pack_x=CENTER, pack_y=CENTER, pack=None,
     count_x=None, count_y=None,
     gap=MARGIN, **kwargs):
     '''By default, subviews are laid out in a grid as squares of optimal size and
@@ -810,6 +837,11 @@ class GridView(ui.View):
     
     super().__init__(**kwargs)
 
+    if pack is not None:
+      pack_x = pack_y = pack
+    self.pack_x = pack_x
+    self.pack_y = pack_y
+    
     self.leading_free = pack_x[0] == '_'
     self.center_x_free = pack_x[1] == '_'
     self.trailing_free = pack_x[2] == '_'
@@ -823,109 +855,6 @@ class GridView(ui.View):
     self.gap = gap
 
     enable(self)
-  
-  #def add_subview(self, subview):
-  #  super().add_subview(subview)
-  #  self.layout()
-  
-  def layout(self):
-    count = len(self.subviews)
-    if count == 0: return
-    for view in self.subviews:
-      remove_constraints(view)
-      enable(view)
-    remove_guides(self)
-    subviews = iter(self.subviews)
-    count_x, count_y = self.count_x, self.count_y
-    if count_x is None and count_y is None:
-      count_x, count_y = self.dimensions(count)
-    elif count_x is None:
-      count_x = math.ceil(count/count_y)
-    elif count_y is None:
-      count_y = math.ceil(count/count_x)
-    if count > count_x * count_y:
-      raise ValueError(
-        f'Fixed counts (x: {count_x}, y: {count_y}) not enough to display all views')
-    dim = min(self.width/count_x, 
-              self.height/count_y)
-              
-    col_guides = [Guide(self) for _ in range(count_x+1)] 
-    row_guides = [Guide(self) for _ in range(count_y+1)]
-    first_col_guide = col_guides[0]
-    last_col_guide = col_guides[-1]
-    free_cols = []
-    for guide in col_guides:
-      free = False
-      if guide == first_col_guide:
-        guide.at.leading == self.at.leading
-        if self.leading_free:
-          free = True
-      elif guide == last_col_guide:
-        guide.at.trailing == self.at.trailing
-        if self.trailing_free:
-          free = True
-      elif self.center_x_free:
-        free = True
-      
-      if free:
-        guide.at.width >= self.gap
-        free_cols.append(guide)
-      else:
-        guide.at.width == self.gap
-    
-    if len(free_cols) > 1:
-      for guide in free_cols[1:]:
-        guide.align.width(free_cols[0])
-        
-    first_row_guide = row_guides[0]
-    last_row_guide = row_guides[-1]
-    free_rows = []
-    for guide in row_guides:
-      free = False
-      if guide == first_row_guide:
-        guide.at.top == self.at.top
-        if self.top_free:
-          free = True
-      elif guide == last_row_guide:
-        guide.at.bottom == self.at.bottom
-        if self.bottom_free:
-          free = True
-      elif self.center_y_free:
-        free = True
-      
-      if free:
-        guide.at.height >= self.gap
-        free_rows.append(guide)
-      else:
-        guide.at.height == self.gap
-    
-    if len(free_rows) > 1:
-      for guide in free_rows[1:]:
-        guide.align.height(free_rows[0])
-    
-    cells = defaultdict(list)
-    for row in range(count_y):
-      for col in range(count_x):
-        try:
-          cell = next(subviews)
-        except StopIteration:
-          break
-        cells[row].append(cell)
-        
-        if row == 0 and col == 0:
-          cell.at.width == cell.at.height
-          cell.at.priority(400).width == dim
-          cell.at.priority(400).height == dim
-        else:
-          cell.align.size(cells[0][0])
-        
-        cell.at.top == row_guides[row].at.bottom
-        
-        cell.at.bottom == row_guides[row+1].at.top
-        
-        cell.at.leading == col_guides[col].at.trailing
-        
-        cell.at.trailing == col_guides[col+1].at.leading
 
   def dimensions(self, count):
     if self.height == 0:
@@ -952,7 +881,65 @@ class GridView(ui.View):
           best_x = cand_x
           best_y = cand_y         
     return (best_x, best_y)
+  
+  def layout(self):
+    count = len(self.subviews)
+    if count == 0: return
+
+    count_x, count_y = self.count_x, self.count_y
+    if count_x is None and count_y is None:
+      count_x, count_y = self.dimensions(count)
+    elif count_x is None:
+      count_x = math.ceil(count/count_y)
+    elif count_y is None:
+      count_y = math.ceil(count/count_x)
+    if count > count_x * count_y:
+      raise ValueError(
+        f'Fixed counts (x: {count_x}, y: {count_y}) not enough to display all views')
+        
+    borders = 2 * self.border_width
+        
+    dim_x = (self.width-borders-(count_x+1)*self.MARGIN)/count_x
+    dim_y = (self.height-borders-(count_y+1)*self.MARGIN)/count_y
+        
+    dim = min(dim_x, dim_y)
+      
+    px = self.pack_x
+    exp_pack_x = px[0] + px[1]*(count_x-1) + px[2]
+    py = self.pack_y
+    exp_pack_y = py[0] + py[1]*(count_y-1) + py[2]
+    free_count_x = exp_pack_x.count('_')
+    free_count_y = exp_pack_y.count('_')
     
+    if free_count_x > 0:
+      per_free_x = (
+        self.width - 
+        borders -
+        count_x*dim -
+        (count_x+1-free_count_x)*self.MARGIN)/free_count_x
+    if free_count_y > 0:
+      per_free_y = (
+        self.height - 
+        borders -
+        count_y*dim -
+        (count_y+1-free_count_y)*self.MARGIN)/free_count_y
+              
+    real_dim_x = dim_x if free_count_x == 0 else dim
+    real_dim_y = dim_y if free_count_y == 0 else dim
+              
+    subviews = iter(self.subviews)
+    y = self.border_width + (per_free_y if self.top_free else self.MARGIN)
+    for row in range(count_y):
+      x = self.border_width + (per_free_x if self.leading_free else self.MARGIN)
+      for col in range(count_x):
+        try:
+          view = next(subviews)
+        except StopIteration:
+          break
+        view.frame = (x, y, real_dim_x, real_dim_y)
+        x += real_dim_x + (per_free_x if self.center_x_free else self.MARGIN)
+      y += real_dim_y + (per_free_y if self.center_y_free else self.MARGIN)
+
     
 class DiagnosticOverlay(ui.View):
   '''Shows constraints as markers on top of the UI.'''
@@ -1214,7 +1201,9 @@ if __name__ == '__main__':
       main_frame.add_subview(search_button)
       self.style(search_button)
       
-      result_area = GridView()
+      result_area = GridView(
+        name='Result area', 
+        pack=GridView.SPREAD)
       main_frame.add_subview(result_area)
       self.style(result_area)
       
@@ -1242,18 +1231,18 @@ if __name__ == '__main__':
       cancel_button.at.trailing == done_button.at.leading_padding
       cancel_button.align.top(done_button)
       result_area.dock.horizontal_between(
-        search_button, done_button)
-   
+        search_button, done_button) 
+        
       for _ in range(5):
         content_view = View()
         self.style(content_view)
-        result_area.add_subview(content_view) 
+        result_area.add_subview(content_view)
       
-      DiagnosticOverlay(self, 
-        #start=result_area,
-        attributes=[])
+      #DiagnosticOverlay(self, 
+      #start=result_area,
+      #attributes=[])
       #check_ambiguity(self)
 
   root = LayoutDemo()
   root.present('full_screen', hide_title_bar=True, animated=False)
-  
+

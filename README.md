@@ -45,7 +45,7 @@ Notes:
 * You can also `/` a multiplier or `-` a constant, and have several multipliers and constants, but they will only be combined per type (i.e. `* 6 + 1 / 3 - 5` is the same as `* 2 - 4`).
 * Multiplier can be zero or the source left out of the equation, but only if the target attribute is a size attribute, e.g.
   * `target.at.height == 100`
-* Target and source attributes cannot mix:
+* Target and source attributes cannot mix...:
   * size and position attributes
   * vertical and horizontal position attributes
   * absolute and relative position attributes (e.g. `leading` and `left`)
@@ -133,13 +133,11 @@ Guides always have an owning view and are straightforward to create:
 
     guide = anchor.Guide(view)
     
-Since guides are never displayed, their constraints can be a bit ambiguous as well. For example, if you want to use a guide as a vertical divider between two views, the height of the guide does not need to be defined:
+Since guides are never displayed, their constraints can be ambiguous. For example, if you want to use a guide as a vertical divider between two views, the height of the guide does not need to be defined:
 
     guide.at.width == 50
     view_a.at.trailing == guide.at.leading
     view_b.at.leading == guide.at.trailing
-    
-GridView, introduced elsewhere, uses guides in this way to achieve smart spacing between the views in the grid.
 
 Guides only respond to a limited set of layout attributes: `left, right, top, bottom, leading, trailing, center_x, center_y, width, height`. Using other attributes with guides will raise an `AttributeError`.
 
