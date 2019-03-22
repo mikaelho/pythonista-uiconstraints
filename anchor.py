@@ -837,10 +837,8 @@ class GridView(ui.View):
     
     super().__init__(**kwargs)
 
-    if pack is not None:
-      pack_x = pack_y = pack
-    self.pack_x = pack_x
-    self.pack_y = pack_y
+    self.pack_x = pack_x or pack
+    self.pack_y = pack_y or pack
     
     self.leading_free = pack_x[0] == '_'
     self.center_x_free = pack_x[1] == '_'
@@ -899,8 +897,8 @@ class GridView(ui.View):
         
     borders = 2 * self.border_width
         
-    dim_x = (self.width-borders-(count_x+1)*self.MARGIN)/count_x
-    dim_y = (self.height-borders-(count_y+1)*self.MARGIN)/count_y
+    dim_x = (self.width-borders-(count_x+1)*self.gap)/count_x
+    dim_y = (self.height-borders-(count_y+1)*self.gap)/count_y
         
     dim = min(dim_x, dim_y)
       
@@ -916,29 +914,29 @@ class GridView(ui.View):
         self.width - 
         borders -
         count_x*dim -
-        (count_x+1-free_count_x)*self.MARGIN)/free_count_x
+        (count_x+1-free_count_x)*self.gap)/free_count_x
     if free_count_y > 0:
       per_free_y = (
         self.height - 
         borders -
         count_y*dim -
-        (count_y+1-free_count_y)*self.MARGIN)/free_count_y
+        (count_y+1-free_count_y)*self.gap)/free_count_y
               
     real_dim_x = dim_x if free_count_x == 0 else dim
     real_dim_y = dim_y if free_count_y == 0 else dim
               
     subviews = iter(self.subviews)
-    y = self.border_width + (per_free_y if self.top_free else self.MARGIN)
+    y = self.border_width + (per_free_y if self.top_free else self.gap)
     for row in range(count_y):
-      x = self.border_width + (per_free_x if self.leading_free else self.MARGIN)
+      x = self.border_width + (per_free_x if self.leading_free else self.gap)
       for col in range(count_x):
         try:
           view = next(subviews)
         except StopIteration:
           break
         view.frame = (x, y, real_dim_x, real_dim_y)
-        x += real_dim_x + (per_free_x if self.center_x_free else self.MARGIN)
-      y += real_dim_y + (per_free_y if self.center_y_free else self.MARGIN)
+        x += real_dim_x + (per_free_x if self.center_x_free else self.gap)
+      y += real_dim_y + (per_free_y if self.center_y_free else self.gap)
 
     
 class DiagnosticOverlay(ui.View):

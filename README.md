@@ -153,4 +153,31 @@ When you constrain a view, you have to unambiguously constrain both its position
     
 This will print out the whole hierarchy, and return any ambiguous views as a list.
 
-_To be continued_
+## GridView
+
+I find myself often creating small apps that need a clean UI, but nothing fancy, just boxes to show content in. Then I again code something quickly, placing a varying amount of squares on the screen with ad hoc math.
+
+Picture below is an example of such app, a dashboard for my e-Golf.
+
+![GridView app sample image](https://raw.githubusercontent.com/mikaelho/pythonista-uiconstraints/master/images/gridview-sample.jpeg)
+
+To avoid creating these types of screens over and over again, I created (yet another) GridView class. Its claim to fame lies in the fact that it does not scroll, neither do you need to set the size of the grid as fixed "x times y"; instead, you can just keep adding subviews to it, and it will use a bit of math to try to keep the layout as pleasing as possible.
+
+Basic usage is simple:
+
+    gv = GridView()
+    
+    for view in my_views:
+      gv.add_subview()
+      
+GridView constructor takes a number of arguments, to fine-tune the layout:
+
+* `gap` - distance between boxes when tightly packed. Default is UIKit Standard 8 pt.
+* `count_x`, `count_y` - use these if you need to restrict the number of boxes in either direction.
+* `pack_x`, `pack_y`, `pack` - control the packing behaviour in either direction, or use the `pack` option to set both at ones. Picture below demonstrates different horizontal packing values. Default packing value in both directions is `GridView.CENTER`.
+
+The views in the grid are always squares, unless you use `FILL`.
+
+![GridView packing options](https://raw.githubusercontent.com/mikaelho/pythonista-uiconstraints/master/images/gridview.jpeg)
+
+Right now this class is part of the [anchor](https://github.com/mikaelho/pythonista-uiconstraints) module, but I might split it later.

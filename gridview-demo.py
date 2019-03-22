@@ -1,5 +1,5 @@
 from ui import *
-from lightanchor import *
+from anchor import *
 
 def style(view):
   view.background_color='white'
@@ -8,7 +8,7 @@ def style(view):
   view.text_color = 'black'
   view.tint_color = 'black'
   
-def create_card(title, packing):
+def create_card(title, packing, count):
   card = View()
   style(card)
   label = Label(
@@ -37,13 +37,18 @@ demo = GridView(background_color='white')
 v.add_subview(demo)
 demo.dock.all(fit=Dock.SAFE)
 
-demo.add_subview(create_card('CENTER', GridView.CENTER))
-demo.add_subview(create_card('FILL', GridView.FILL))
-demo.add_subview(create_card('START', GridView.START))
-demo.add_subview(create_card('END', GridView.END))
-demo.add_subview(create_card('SIDES', GridView.SIDES))
-demo.add_subview(create_card('SPREAD', GridView.SPREAD))
-demo.add_subview(create_card('START_SPREAD', GridView.START_SPREAD))
-demo.add_subview(create_card('END_SPREAD', GridView.END_SPREAD))
+cards = (
+  ('CENTER', GridView.CENTER),
+  ('FILL', GridView.FILL),
+  ('START', GridView.START),
+  ('END', GridView.END),
+  ('SIDES', GridView.SIDES),
+  ('SPREAD', GridView.SPREAD),
+  ('START_SPREAD', GridView.START_SPREAD),
+  ('END_SPREAD', GridView.END_SPREAD) 
+)
+
+for i, spec in enumerate(cards):
+  demo.add_subview(create_card(spec[0], spec[1], i))
 
 v.present()
