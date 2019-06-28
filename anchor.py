@@ -817,7 +817,7 @@ class GridView(ui.View):
   TIGHT = 0
   
   def __init__(self,
-    pack_x=CENTER, pack_y=CENTER, pack=None,
+    pack_x=None, pack_y=None, pack=CENTER,
     count_x=None, count_y=None,
     gap=MARGIN, **kwargs):
     '''By default, subviews are laid out in a grid as squares of optimal size and
@@ -840,12 +840,12 @@ class GridView(ui.View):
     self.pack_x = pack_x or pack
     self.pack_y = pack_y or pack
     
-    self.leading_free = pack_x[0] == '_'
-    self.center_x_free = pack_x[1] == '_'
-    self.trailing_free = pack_x[2] == '_'
-    self.top_free = pack_y[0] == '_'
-    self.center_y_free = pack_y[1] == '_'
-    self.bottom_free = pack_y[2] == '_'
+    self.leading_free = self.pack_x[0] == '_'
+    self.center_x_free = self.pack_x[1] == '_'
+    self.trailing_free = self.pack_x[2] == '_'
+    self.top_free = self.pack_y[0] == '_'
+    self.center_y_free = self.pack_y[1] == '_'
+    self.bottom_free = self.pack_y[2] == '_'
 
     self.count_x = count_x
     self.count_y = count_y
