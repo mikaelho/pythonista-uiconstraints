@@ -404,7 +404,50 @@ class Dock:
     self._set_size(share)
     
   horizontal = sides
-  
+    
+  def vertical(self, constant=0, fit=default_fit):
+    at = self.view.at
+    at.top == self._fit(fit).top + constant
+    at.bottom == self._fit(fit).bottom - constant
+    
+  def between(self,
+    top=None, bottom=None,
+    leading=None, trailing=None, 
+    fit=default_fit, constant=0):
+    at = self.view.at
+    if top:
+      enable(top)
+      at.top == (
+        top.at.bottom if fit == Dock.TIGHT 
+        else top.at.bottom_padding
+        + constant)
+    else:
+      at.top == self._fit(fit).top + constant
+    if bottom:
+      enable(bottom)
+      at.bottom == (
+        bottom.at.top if fit == Dock.TIGHT 
+        else bottom.at.top_padding
+        - constant)
+    else:
+      at.bottom == self._fit(fit).bottom - constant
+    if leading:
+      enable(leading)
+      at.leading == (
+        leading.at.trailing if fit == Dock.TIGHT
+        else leading.at.trailing_padding
+        + constant)
+    else:
+      at.leading == self._fit(fit).leading + constant
+    if trailing:
+      enable(trailing)
+      at.trailing == (
+        trailing.at.leading if fit == Dock.TIGHT 
+        else trailing.at.leading_padding
+        - constant)
+    else:
+      at.trailing == self._fit(fit).trailing - constant
+    
   def horizontal_between(self, top_view, bottom_view, constant=0, fit=default_fit):
     at = self.view.at
     enable(top_view, bottom_view)
@@ -416,20 +459,15 @@ class Dock:
       at.top == top_view.at.bottom_padding + constant
       at.bottom == bottom_view.at.top_padding + constant
     
-  def vertical(self, constant=0, fit=default_fit):
-    at = self.view.at
-    at.top == self._fit(fit).top + constant
-    at.bottom == self._fit(fit).bottom - constant
-    
   def vertical_between(self, leading_view, trailing_view, constant=0, 
   fit=default_fit):
     at = self.view.at
     enable(leading_view, trailing_view)
     self.vertical(constant, fit)
-    if fit == Constrain.TIGHT:
+    if fit == Dock.TIGHT:
       at.leading == leading_view.at.trailing + constant
       at.trailing == trailing_view.at.leading + constant
-    elif fit == Constrain.MARGIN:
+    elif fit == Dock.MARGIN:
       at.leading == leading_view.at.trailing_padding + constant
       at.trailing == trailing_view.at.leading_padding + constant
     
@@ -694,11 +732,11 @@ def remove_guide(guide):
       
 def check_ambiguity(view, indent=0):
   '''Prints all views in the view hierarchy starting with the given view,
-  marking the ones that have ambiguous layout . 
+  marking the ones that have ambiguous layout. 
   Returns a list of ambiguous views.'''
   ambiguous_views = []
   layout = '- Frames'
-  if view.objc_instance.translatesAutoresizingMaskIntoConstraints():
+  if not view.objc_instance.translatesAutoresizingMaskIntoConstraints():
     layout = '- Constraints'
     if view.at.is_ambiguous:
       layout += ' AMBIGUOUS'
@@ -800,6 +838,16 @@ class Dimensions:
     (e.g. phone held in the portrait orientation, or an iPad in any orientation).'''
     return cls.vertical_size_class() == 'regular'
     
+    
+def add_subviews(view):
+  '''
+  Convenience method to add all members of a view that are views as its subviews.
+  '''
+  for key in view.__dict__:
+    value = getattr(view, key)
+    if isinstance(value, ui.View):
+      view.add_subview(value)
+      
 
 class GridView(ui.View):
   'Places subviews as squares that fill the available space.'
@@ -1228,8 +1276,9 @@ if __name__ == '__main__':
       done_button.dock.bottom_trailing()
       cancel_button.at.trailing == done_button.at.leading_padding
       cancel_button.align.top(done_button)
-      result_area.dock.horizontal_between(
-        search_button, done_button) 
+      result_area.dock.between(
+        top=search_button, 
+        bottom=done_button) 
         
       for _ in range(5):
         content_view = View()

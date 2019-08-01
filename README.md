@@ -96,14 +96,17 @@ For example, the following places constraints to the top and both sides, leaving
 
 Following docking methods are available:
 
-* `all, center, horizontal, vertical, horizontal_between, vertical_between, top, bottom, leading, trailing, top_leading, top_trailing, bottom_leading, bottom_trailing`
+* `all, center, horizontal, vertical, between, top, bottom, leading, trailing, top_leading, top_trailing, bottom_leading, bottom_trailing`
 
-The most specialized of these are the `_between` methods, which dock the view to the sides in one direction, and between the two given views in another. Here's an example:
+The most specialized of these is the `between` method, which docks the view to provided other views, and to the superview on the sides where you do not provide a view. Below is an example that docks the view to buttons at `top` and `bottom` - `leading` and `trailing` are left to be connected to the sides of the superview.
 
-    result_area.dock.horizontal_between(
-      search_button, done_button)
+    result_area.dock.between(
+      top=search_button,
+      bottom=done_button)
       
 ![Dock between example](https://raw.githubusercontent.com/mikaelho/pythonista-uiconstraints/master/images/between.jpeg)
+
+(Yes, `between()` with no arguments has the same effect as `all()`.)
 
 By default, `dock` methods leave a margin between the edges of the superview and the view. This can be adjusted with the `fit` parameter:
 
@@ -113,7 +116,7 @@ By default, `dock` methods leave a margin between the edges of the superview and
 
 You can also change the default by setting the `Dock.default_fit` parameter, e.g.:
 
-    Dock.default_fit = Dock TIGHT
+    Dock.default_fit = Dock.TIGHT
     
 Many `dock` methods support `share` and `constant` parameters.
 
@@ -143,15 +146,24 @@ Guides only respond to a limited set of layout attributes: `left, right, top, bo
 
 ## Debugging constraints
 
-When you constrain a view, you have to unambiguously constrain both its position and size. If you miss something, the view usually is not visible at all. To debug constraints, you can either check an individual view for problems with:
+When you constrain a view, you have to unambiguously constrain both its position and size. If you miss something, the view usually is not visible at all.
+
+An example of an ambiguous constraint definition could be:
+
+    view_a.dock.top()
+    view_b.dock.between(top=view_a)
+    
+... which can leave the height of view_a undefined, and make size of both views ambiguous. (But not necessarily - if view_a is a Label, for example, it has a natural height which makes the constraints above fully defined.)
+
+To debug constraints, you can either check an individual view for problems with:
 
     view.at.is_ambiguous
 
-... or check your view hierarchy by:
+... or check your whole view hierarchy by:
 
     anchor.check_ambiguity(root_view)
     
-This will print out the whole hierarchy, and return any ambiguous views as a list.
+This will print out the whole hierarchy, indicating which views use constraints, and which of those are ambiguous.
 
 ## GridView
 
@@ -180,4 +192,4 @@ The views in the grid are always squares, unless you use `FILL`.
 
 ![GridView packing options](https://raw.githubusercontent.com/mikaelho/pythonista-uiconstraints/master/images/gridview.jpeg)
 
-Right now this class is part of the [anchor](https://github.com/mikaelho/pythonista-uiconstraints) module, but I might split it later.
+Right now this class is part of the [anchor](https://github.com/mikaelho/pythonista-uiconstraints) module, even if it does not use constraints - might split it later.
