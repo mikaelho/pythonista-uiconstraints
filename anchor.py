@@ -355,7 +355,7 @@ class Dock:
     
   @objc_util.on_main_thread
   def fit(self):
-    'Set size constraints according to the views preferred size.'
+    "Set size constraints according to the view‘s preferred size."
     view = self.view
     size = view.objc_instance.sizeThatFits_((0,0))
     extra_width = 0
@@ -373,6 +373,7 @@ class Dock:
 
   def _fit(self, fit):
     s = self.superview
+    enable(s)
     if fit == Dock.TIGHT:
       return s.at
     elif fit == Dock.MARGIN:
