@@ -2,6 +2,7 @@
 import objc_util
 import ui
 import inspect, gc, types, sys, random, math
+import keyword
 from types import SimpleNamespace
 from copy import copy
 from collections import defaultdict
@@ -1188,6 +1189,76 @@ class DiagnosticOverlay(ui.View):
       marker.at.center_y == view.at.center_y
       marker.at.width == thickness
       marker.at.height == view.at.height * share
+      
+class NameSpace(dict):
+    ''' Simple utility version of dict that supports item access as attributes.
+    '''
+    
+    def __getattr__(self, key):
+        if key in self:
+            return self[key]
+        else:
+            return super().__getattr__(key)
+      
+def create_view_hierarchy(
+    view_dict,
+    set_defaults_func=None, 
+    set_constraints_func=None,
+    parent=None,
+    views=None):
+    ''' Method that creates a view hierarchy as specified by the provided dict.
+    Returns a `views` object with references to all created views.
+    
+    Sample view hierarchy dictionary:
+        { 'root': (ui.View, {
+            'top': (ui.View, {
+                'search_text': ui.TextField,
+                'search_action': ui.Button,
+            }),
+            'middle': ui.View,
+            'bottom': (ui.View, {
+                'accept': ui.Button,
+                'cancel': ui.Button,
+            })
+        }) }
+    I.e. view names as keys, classes as values.
+    If the value is a tuple instead, the first value must be the class and
+    the second value a dictionary for the next level of the view hierarchy.
+    
+    Views are initialized with no arguments. 
+    `set_defaults_func`, if provided, is called with the initialized view as
+    the only argument.
+    After all view have been initialized and included in the hierarchy, 
+    `set_constraints_func`, if provided, is called with the views object.
+    
+    The `views` object contains a reference to all created views. Views can be 
+    accessed equivalently with dict references or as attributes:
+        * `views['top']`
+        * `views.top`
+    '''
+        
+    if views is None:
+        views = NameSpace()
+    for view_name in view_dict:
+        assert view_name.isidentifier() and not keyword.iskeyword(view_name)
+        spec = view_dict[view_name]
+        view_class = spec[0] if type(spec) is tuple else spec
+        view = view_class(name=view_name)
+        if parent:
+            parent.add_subview(view)
+        if set_defaults_func:
+            set_defaults_func(view)
+        views[view_name] = view
+        if type(spec) is tuple:
+            create_view_hierarchy(spec[1],
+                set_defaults_func,
+                None,
+                view,
+                views)
+    if parent is None:
+        if set_constraints_func:
+            set_constraints_func(views)
+        return views      
   
 if __name__ == '__main__':
   
