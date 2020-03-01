@@ -1418,4 +1418,4 @@ if __name__ == '__main__':
 
 
     root = LayoutDemo()
-    root.present('full_screen', hide_title_bar=True, animated=False)
+    root.present('fullscreen', hide_title_bar=True, animated=False)
