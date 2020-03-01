@@ -1,8 +1,11 @@
 # coding: utf-8
 
 """
-
+Pythonista UI layouts using relative constraints instead of coordinate
+placement
 """
+
+__version__ = '1.0'
 
 import objc_util
 import ui
